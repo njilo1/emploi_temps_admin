@@ -19,6 +19,7 @@ class EmploiTable extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
+        headingRowColor: MaterialStatePropertyAll(Colors.tealAccent),
         columns: [
           const DataColumn(label: Text('Heure')),
           ...jours.map((jour) => DataColumn(label: Text(jour))),
