@@ -67,9 +67,11 @@ class EmploiGenerator {
             }
           }
 
+<
           // ✅ Vérifie si le prof et la classe sont disponibles
           profOccupation.putIfAbsent(cleOccupation, () => <String>{});
           classeOccupation.putIfAbsent(cleOccupation, () => <String>{});
+
           if (salleChoisie != null &&
               !profOccupation[cleOccupation]!.contains(profId) &&
               !classeOccupation[cleOccupation]!.contains(classeId)) {
