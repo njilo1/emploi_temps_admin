@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "624161995423",
+    "project_id": "emploi-temps-uebolowa",
+    "storage_bucket": "emploi-temps-uebolowa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:624161995423:android:8f8e81881ea35c714740aa",
+        "android_client_info": {
+          "package_name": "com.example.emploi_temps_admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkX7PJi6nQl0mrOxbu2cdqV7Xt_R_5Q7A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
