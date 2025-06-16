@@ -49,7 +49,7 @@ class EmploiGenerator {
       final rawProf = data['prof'];
       final classeId = rawClasse is DocumentReference ? rawClasse.id : rawClasse;
       final profId = rawProf is DocumentReference ? rawProf.id : rawProf;
-      final volume = data['volume_horaire'];
+      final int volume = (data['volume_horaire'] as num).toInt();
       int heuresRestantes = volume;
 
       for (final jour in joursSemaine) {
