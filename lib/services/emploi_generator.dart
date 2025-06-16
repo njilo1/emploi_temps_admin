@@ -57,7 +57,7 @@ class EmploiGenerator {
           String? salleChoisie;
           for (final salle in salles.docs) {
             final salleId = salle.id;
-            salleOccupation.putIfAbsent(cleOccupation, () => {});
+            salleOccupation.putIfAbsent(cleOccupation, () => <String>{});
             if (!salleOccupation[cleOccupation]!.contains(salleId)) {
               salleChoisie = salleId;
               salleOccupation[cleOccupation]!.add(salleId);
@@ -66,7 +66,7 @@ class EmploiGenerator {
           }
 
           // ✅ Vérifie si le prof est disponible
-          profOccupation.putIfAbsent(cleOccupation, () => {});
+          profOccupation.putIfAbsent(cleOccupation, () => <String>{});
           if (salleChoisie != null &&
               !profOccupation[cleOccupation]!.contains(profId)) {
             profOccupation[cleOccupation]!.add(profId);
@@ -107,7 +107,7 @@ class EmploiGenerator {
       final salleId = data['salle'];
       final profId = data['prof'];
 
-      emploi.putIfAbsent(jour, () => {});
+      emploi.putIfAbsent(jour, () => <String, String>{});
       emploi[jour]![heure] = "Module: $moduleId\nSalle: $salleId\nProf: $profId";
     }
 
