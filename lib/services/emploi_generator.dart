@@ -33,7 +33,8 @@ class EmploiGenerator {
     final professeurs = await _db.collection('professeurs').get();
 
     final Map<String, Set<String>> salleOccupation = {}; // {jour-heure: [salleId]}
-    final Map<String, Set<String>> profOccupation = {};   // {jour-heure: [profId]}
+    final Map<String, Set<String>> profOccupation = {}; // {jour-heure: [profId]}
+    final Map<String, Set<String>> classeOccupation = {}; // {jour-heure: [classeId]}
 
     // 🧹 Supprime tous les anciens emplois
     final anciensEmplois = await _db.collection('emplois').get();
@@ -44,9 +45,11 @@ class EmploiGenerator {
     // 🔄 Parcours de chaque module à planifier
     for (final module in modules.docs) {
       final data = module.data();
-      final classeId = data['classe'];   // ✅ ID correct (réel) de la classe
-      final profId = data['prof'];       // ✅ ID correct du professeur
-      final volume = data['volume_horaire'];
+      final rawClasse = data['classe'];
+      final rawProf = data['prof'];
+      final classeId = rawClasse is DocumentReference ? rawClasse.id : rawClasse;
+      final profId = rawProf is DocumentReference ? rawProf.id : rawProf;
+      final int volume = (data['volume_horaire'] as num).toInt();
       int heuresRestantes = volume;
 
       for (final jour in joursSemaine) {
@@ -60,16 +63,21 @@ class EmploiGenerator {
             salleOccupation.putIfAbsent(cleOccupation, () => <String>{});
             if (!salleOccupation[cleOccupation]!.contains(salleId)) {
               salleChoisie = salleId;
-              salleOccupation[cleOccupation]!.add(salleId);
               break;
             }
           }
 
-          // ✅ Vérifie si le prof est disponible
+<
+          // ✅ Vérifie si le prof et la classe sont disponibles
           profOccupation.putIfAbsent(cleOccupation, () => <String>{});
+          classeOccupation.putIfAbsent(cleOccupation, () => <String>{});
+
           if (salleChoisie != null &&
-              !profOccupation[cleOccupation]!.contains(profId)) {
+              !profOccupation[cleOccupation]!.contains(profId) &&
+              !classeOccupation[cleOccupation]!.contains(classeId)) {
+            salleOccupation[cleOccupation]!.add(salleChoisie);
             profOccupation[cleOccupation]!.add(profId);
+            classeOccupation[cleOccupation]!.add(classeId);
 
             // 📥 Enregistre le créneau dans Firestore
             await _db.collection('emplois').add({
@@ -81,8 +89,13 @@ class EmploiGenerator {
               'prof': profId,
             });
 
+            debugPrint(
+                'Créneau réservé: classe $classeId, module ${module.id}, salle $salleChoisie, $jour $heure');
+
             heuresRestantes -= 2;
             if (heuresRestantes <= 0) break;
+          } else {
+            debugPrint('Collision détectée pour $classeId le $jour à $heure');
           }
         }
         if (heuresRestantes <= 0) break;
@@ -92,6 +105,7 @@ class EmploiGenerator {
 
   /// 📤 Récupère l'emploi du temps d'une classe au format affichable
   Future<Map<String, Map<String, String>>> getEmploisParClasse(String classeId) async {
+    debugPrint('📥 Chargement des emplois pour la classe $classeId');
     final snapshot = await _db
         .collection('emplois')
         .where('classe', isEqualTo: classeId)

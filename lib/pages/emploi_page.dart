@@ -43,6 +43,7 @@ class _EmploiPageState extends State<EmploiPage> {
     setState(() {
       _isLoading = true;
       _message = null;
+      emplois = {}; // réinitialise le tableau affiché
     });
 
     try {
@@ -52,6 +53,7 @@ class _EmploiPageState extends State<EmploiPage> {
         emplois = result;
         _message = "✅ Emploi du temps généré avec succès !";
       });
+      debugPrint('Emplois récupérés: $result');
     } catch (e) {
       setState(() {
         _message = "❌ Erreur : $e";
@@ -149,7 +151,18 @@ class _EmploiPageState extends State<EmploiPage> {
             const SizedBox(height: 10),
 
             if (emplois.isNotEmpty)
-              Expanded(child: EmploiTable(emploiData: emplois)),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Card(
+                    elevation: 2,
+                    margin: const EdgeInsets.only(top: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: EmploiTable(emploiData: emplois),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

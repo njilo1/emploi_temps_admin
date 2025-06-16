@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
 class EmploiTable extends StatelessWidget {
-  final List<String> jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+  final List<String> jours = [
+    'Lundi',
+    'Mardi',
+    'Mercredi',
+    'Jeudi',
+    'Vendredi',
+    'Samedi',
+  ];
   final List<String> heures = [
     '07:30 - 09:30',
     '09:45 - 11:45',
@@ -19,6 +26,7 @@ class EmploiTable extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
+        headingRowColor: MaterialStateProperty.all(Colors.tealAccent),
         columns: [
           const DataColumn(label: Text('Heure')),
           ...jours.map((jour) => DataColumn(label: Text(jour))),
