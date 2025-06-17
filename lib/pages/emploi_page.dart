@@ -1,3 +1,4 @@
+// lib/pages/emploi_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/emploi_generator.dart';
@@ -28,9 +29,10 @@ class _EmploiPageState extends State<EmploiPage> {
   Future<void> _chargerClasses() async {
     final snapshot = await FirebaseFirestore.instance.collection('classes').get();
     setState(() {
-      _classes = snapshot.docs
-          .map((doc) => {'id': doc.id, 'nom': doc['nom'] ?? 'Classe'})
-          .toList();
+      _classes = snapshot.docs.map((doc) => {
+        'id': doc.id,
+        'nom': (doc.data()['nom'] ?? 'Sans nom'),
+      }).toList();
       if (_classes.isNotEmpty) {
         _selectedClassId = _classes.first['id'];
       }
@@ -84,7 +86,6 @@ class _EmploiPageState extends State<EmploiPage> {
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 20),
-
             Card(
               elevation: 3,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -100,12 +101,10 @@ class _EmploiPageState extends State<EmploiPage> {
                           value: _selectedClassId,
                           isExpanded: true,
                           hint: const Text("Choisir une classe"),
-                          items: _classes.map<DropdownMenuItem<String>>((classe) {
-                            final id = classe['id'] as String;
-                            final nom = classe['nom'] as String;
+                          items: _classes.map((classe) {
                             return DropdownMenuItem<String>(
-                              value: id,
-                              child: Text(nom),
+                              value: classe['id'],
+                              child: Text(classe['nom']),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -120,9 +119,7 @@ class _EmploiPageState extends State<EmploiPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 20),
-
             _isLoading
                 ? const CircularProgressIndicator()
                 : ElevatedButton.icon(
@@ -130,15 +127,13 @@ class _EmploiPageState extends State<EmploiPage> {
               icon: const Icon(Icons.refresh),
               label: const Text("Générer l'emploi du temps"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade700,
+                backgroundColor: Colors.teal,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 textStyle: const TextStyle(fontSize: 16),
               ),
             ),
-
             const SizedBox(height: 20),
-
             if (_message != null)
               Text(
                 _message!,
@@ -147,9 +142,7 @@ class _EmploiPageState extends State<EmploiPage> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
             const SizedBox(height: 10),
-
             if (emplois.isNotEmpty)
               Expanded(
                 child: SingleChildScrollView(

@@ -3,16 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class EmploiGenerator {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ⏰ Tranches horaires pour les cours
+  // Créneaux horaires conformes au planning officiel
   final List<String> tranchesHoraires = [
-    '07:30 - 09:30',
-    '09:45 - 11:45',
-    '12:00 - 14:00',
-    '14:15 - 16:15',
-    '16:30 - 18:30',
+    '07H30 - 10H15',
+    '10H30 - 13H15',
+    '13H30 - 16H15',
+    '16H30 - 19H15',
   ];
 
-  // 📆 Jours de la semaine
   final List<String> joursSemaine = [
     'Lundi',
     'Mardi',
@@ -22,64 +20,49 @@ class EmploiGenerator {
     'Samedi',
   ];
 
-  /// 🔁 Génère automatiquement les emplois du temps dans Firestore
+  /// Génère automatiquement un emploi du temps respectant les créneaux
   Future<void> genererEmploisAutomatiquement() async {
-    final classes = await _db.collection('classes').get();
     final modules = await _db.collection('modules').get();
-    final salles = await _db
-        .collection('salles')
+    final salles = await _db.collection('salles')
         .where('disponible', isEqualTo: true)
         .get();
-    final professeurs = await _db.collection('professeurs').get();
 
-    final Map<String, Set<String>> salleOccupation = {}; // {jour-heure: [salleId]}
-    final Map<String, Set<String>> profOccupation = {}; // {jour-heure: [profId]}
-    final Map<String, Set<String>> classeOccupation = {}; // {jour-heure: [classeId]}
+    final Map<String, Set<String>> salleOccupation = {};
+    final Map<String, Set<String>> profOccupation = {};
 
-    // 🧹 Supprime tous les anciens emplois
+    // 🔁 Nettoyage des anciens emplois
     final anciensEmplois = await _db.collection('emplois').get();
     for (final doc in anciensEmplois.docs) {
       await doc.reference.delete();
     }
 
-    // 🔄 Parcours de chaque module à planifier
     for (final module in modules.docs) {
       final data = module.data();
-      final rawClasse = data['classe'];
-      final rawProf = data['prof'];
-      final classeId = rawClasse is DocumentReference ? rawClasse.id : rawClasse;
-      final profId = rawProf is DocumentReference ? rawProf.id : rawProf;
+      final String classeId = data['classe'];
+      final String profId = data['prof'];
       final int volume = (data['volume_horaire'] as num).toInt();
+
       int heuresRestantes = volume;
 
       for (final jour in joursSemaine) {
         for (final heure in tranchesHoraires) {
-          final cleOccupation = '$jour-$heure';
+          final cle = '$jour-$heure';
 
-          // ✅ Vérifie si une salle est disponible
           String? salleChoisie;
           for (final salle in salles.docs) {
             final salleId = salle.id;
-            salleOccupation.putIfAbsent(cleOccupation, () => <String>{});
-            if (!salleOccupation[cleOccupation]!.contains(salleId)) {
+            salleOccupation.putIfAbsent(cle, () => {});
+            if (!salleOccupation[cle]!.contains(salleId)) {
               salleChoisie = salleId;
+              salleOccupation[cle]!.add(salleId);
               break;
             }
           }
 
-<
-          // ✅ Vérifie si le prof et la classe sont disponibles
-          profOccupation.putIfAbsent(cleOccupation, () => <String>{});
-          classeOccupation.putIfAbsent(cleOccupation, () => <String>{});
+          profOccupation.putIfAbsent(cle, () => {});
+          if (salleChoisie != null && !profOccupation[cle]!.contains(profId)) {
+            profOccupation[cle]!.add(profId);
 
-          if (salleChoisie != null &&
-              !profOccupation[cleOccupation]!.contains(profId) &&
-              !classeOccupation[cleOccupation]!.contains(classeId)) {
-            salleOccupation[cleOccupation]!.add(salleChoisie);
-            profOccupation[cleOccupation]!.add(profId);
-            classeOccupation[cleOccupation]!.add(classeId);
-
-            // 📥 Enregistre le créneau dans Firestore
             await _db.collection('emplois').add({
               'classe': classeId,
               'jour': jour,
@@ -89,13 +72,8 @@ class EmploiGenerator {
               'prof': profId,
             });
 
-            debugPrint(
-                'Créneau réservé: classe $classeId, module ${module.id}, salle $salleChoisie, $jour $heure');
-
-            heuresRestantes -= 2;
+            heuresRestantes -= 3;
             if (heuresRestantes <= 0) break;
-          } else {
-            debugPrint('Collision détectée pour $classeId le $jour à $heure');
           }
         }
         if (heuresRestantes <= 0) break;
@@ -103,17 +81,30 @@ class EmploiGenerator {
     }
   }
 
-  /// 📤 Récupère l'emploi du temps d'une classe au format affichable
+  /// Récupération des emplois du temps d’une classe (format lisible)
   Future<Map<String, Map<String, String>>> getEmploisParClasse(String classeId) async {
-    debugPrint('📥 Chargement des emplois pour la classe $classeId');
-    final snapshot = await _db
+    final emploisSnap = await _db
         .collection('emplois')
         .where('classe', isEqualTo: classeId)
         .get();
 
+    final modulesSnap = await _db.collection('modules').get();
+    final profsSnap = await _db.collection('professeurs').get();
+    final sallesSnap = await _db.collection('salles').get();
+
+    final modulesMap = {
+      for (var m in modulesSnap.docs) m.id: m.data()['nom'] ?? 'Module'
+    };
+    final profsMap = {
+      for (var p in profsSnap.docs) p.id: p.data()['nom'] ?? 'Professeur'
+    };
+    final sallesMap = {
+      for (var s in sallesSnap.docs) s.id: s.data()['nom'] ?? 'Salle'
+    };
+
     Map<String, Map<String, String>> emploi = {};
 
-    for (final doc in snapshot.docs) {
+    for (final doc in emploisSnap.docs) {
       final data = doc.data();
       final jour = data['jour'];
       final heure = data['heure'];
@@ -121,65 +112,16 @@ class EmploiGenerator {
       final salleId = data['salle'];
       final profId = data['prof'];
 
-      emploi.putIfAbsent(jour, () => <String, String>{});
-      emploi[jour]![heure] = "Module: $moduleId\nSalle: $salleId\nProf: $profId";
+      final moduleNom = modulesMap[moduleId] ?? 'Module';
+      final salleNom = sallesMap[salleId] ?? 'Salle';
+      final profNom = profsMap[profId] ?? 'Prof';
+
+      final contenu = "$moduleNom – Salle $salleNom – $profNom";
+
+      emploi.putIfAbsent(jour, () => {});
+      emploi[jour]![heure] = contenu;
     }
 
     return emploi;
-  }
-
-  /// Importe un planning depuis un JSON et l'enregistre dans Firestore
-  Future<void> importerDepuisJson(Map<String, dynamic> data) async {
-    for (final entry in data.entries) {
-      final className = entry.key.replaceAll('_', ' ');
-      final classSnap = await _db
-          .collection('classes')
-          .where('nom', isEqualTo: className)
-          .limit(1)
-          .get();
-      if (classSnap.docs.isEmpty) continue;
-      final classId = classSnap.docs.first.id;
-
-      final jours = entry.value as Map<String, dynamic>;
-      for (final jourEntry in jours.entries) {
-        final heureMap = jourEntry.value as Map<String, dynamic>;
-        for (final heureEntry in heureMap.entries) {
-          final info = (heureEntry.value as String).split(' – ');
-          if (info.length < 3) continue;
-          final moduleName = info[0];
-          final salleName = info[1];
-          final profName = info[2];
-
-          final moduleSnap = await _db
-              .collection('modules')
-              .where('nom', isEqualTo: moduleName)
-              .where('classe', isEqualTo: classId)
-              .limit(1)
-              .get();
-          final salleSnap = await _db
-              .collection('salles')
-              .where('nom', isEqualTo: salleName)
-              .limit(1)
-              .get();
-          final profSnap = await _db
-              .collection('professeurs')
-              .where('nom', isEqualTo: profName)
-              .limit(1)
-              .get();
-          if (moduleSnap.docs.isEmpty ||
-              salleSnap.docs.isEmpty ||
-              profSnap.docs.isEmpty) continue;
-
-          await _db.collection('emplois').add({
-            'classe': classId,
-            'jour': jourEntry.key,
-            'heure': heureEntry.key,
-            'salle': salleSnap.docs.first.id,
-            'module': moduleSnap.docs.first.id,
-            'prof': profSnap.docs.first.id,
-          });
-        }
-      }
-    }
   }
 }
