@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'add_entity_page.dart';
 import 'entity_list_page.dart';
 import 'emploi_page.dart'; // ✅ Assure-toi que ce fichier existe bien dans ce dossier
+import 'planning_import_page.dart';
+import 'emploi_global_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -114,6 +116,10 @@ class AppDrawer extends StatelessWidget {
           // ✅ Lien vers l’emploi du temps
           drawerItem(context, "Générer Emploi du Temps", Icons.event_available,
                   () => EmploiPage()), // ✅ const supprimé ici aussi
+          drawerItem(context, "Importer Planning", Icons.upload_file,
+                  () => const PlanningImportPage()),
+          drawerItem(context, "Emploi global", Icons.table_rows,
+                  () => const EmploiGlobalPage()),
         ],
       ),
     );
