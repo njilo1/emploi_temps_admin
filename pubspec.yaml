@@ -44,7 +44,7 @@ dependencies:
   firebase_storage_web: ^3.5.4
   js: ^0.6.7
   http: ^1.1.0
-  file_picker: ^6.1.1
+  file_selector: ^1.0.3
   pdf: ^3.10.4
   printing: ^5.11.0
 
