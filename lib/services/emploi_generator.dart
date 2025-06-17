@@ -127,4 +127,59 @@ class EmploiGenerator {
 
     return emploi;
   }
+
+  /// Importe un planning depuis un JSON et l'enregistre dans Firestore
+  Future<void> importerDepuisJson(Map<String, dynamic> data) async {
+    for (final entry in data.entries) {
+      final className = entry.key.replaceAll('_', ' ');
+      final classSnap = await _db
+          .collection('classes')
+          .where('nom', isEqualTo: className)
+          .limit(1)
+          .get();
+      if (classSnap.docs.isEmpty) continue;
+      final classId = classSnap.docs.first.id;
+
+      final jours = entry.value as Map<String, dynamic>;
+      for (final jourEntry in jours.entries) {
+        final heureMap = jourEntry.value as Map<String, dynamic>;
+        for (final heureEntry in heureMap.entries) {
+          final info = (heureEntry.value as String).split(' – ');
+          if (info.length < 3) continue;
+          final moduleName = info[0];
+          final salleName = info[1];
+          final profName = info[2];
+
+          final moduleSnap = await _db
+              .collection('modules')
+              .where('nom', isEqualTo: moduleName)
+              .where('classe', isEqualTo: classId)
+              .limit(1)
+              .get();
+          final salleSnap = await _db
+              .collection('salles')
+              .where('nom', isEqualTo: salleName)
+              .limit(1)
+              .get();
+          final profSnap = await _db
+              .collection('professeurs')
+              .where('nom', isEqualTo: profName)
+              .limit(1)
+              .get();
+          if (moduleSnap.docs.isEmpty ||
+              salleSnap.docs.isEmpty ||
+              profSnap.docs.isEmpty) continue;
+
+          await _db.collection('emplois').add({
+            'classe': classId,
+            'jour': jourEntry.key,
+            'heure': heureEntry.key,
+            'salle': salleSnap.docs.first.id,
+            'module': moduleSnap.docs.first.id,
+            'prof': profSnap.docs.first.id,
+          });
+        }
+      }
+    }
+  }
 }
