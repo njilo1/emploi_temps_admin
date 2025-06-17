@@ -40,24 +40,31 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
       _message = null;
     });
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('http://localhost:8000/parse-word'),
-    );
-    request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        // Sur l'émulateur Android, "localhost" doit être remplacé par 10.0.2.2
+        Uri.parse('http://10.0.2.2:8000/parse-word'),
+      );
+      request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
 
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
 
-    if (response.statusCode == 200) {
-      final data = json.decode(body) as Map<String, dynamic>;
-      await _generator.importerDepuisJson(data);
+      if (response.statusCode == 200) {
+        final data = json.decode(body) as Map<String, dynamic>;
+        await _generator.importerDepuisJson(data);
+        setState(() {
+          _message = 'Planning importé avec succès';
+        });
+      } else {
+        setState(() {
+          _message = "Erreur lors de l'importation du fichier";
+        });
+      }
+    } catch (e) {
       setState(() {
-        _message = 'Planning importé avec succès';
-      });
-    } else {
-      setState(() {
-        _message = "Erreur lors de l'importation du fichier";
+        _message = 'Erreur : $e';
       });
     }
 
