@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class EmploiGenerator {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -66,8 +67,8 @@ class EmploiGenerator {
               break;
             }
           }
+          // ✅ Vérifie si le prof et la classe sont disponibles
 
-<
           // ✅ Vérifie si le prof et la classe sont disponibles
           profOccupation.putIfAbsent(cleOccupation, () => <String>{});
           classeOccupation.putIfAbsent(cleOccupation, () => <String>{});
@@ -99,6 +100,67 @@ class EmploiGenerator {
           }
         }
         if (heuresRestantes <= 0) break;
+      }
+    }
+  } 
+
+  /// Importe un planning à partir d'un JSON
+  Future<void> importFromJson(Map<String, dynamic> data) async {
+    for (final entry in data.entries) {
+      final className = entry.key.replaceAll('_', ' ');
+      final clsSnap = await _db
+          .collection('classes')
+          .where('nom', isEqualTo: className)
+          .limit(1)
+          .get();
+      if (clsSnap.docs.isEmpty) continue;
+      final classeId = clsSnap.docs.first.id;
+      final jours = Map<String, dynamic>.from(entry.value);
+      for (final jourEntry in jours.entries) {
+        final jour = jourEntry.key;
+        final heures = Map<String, dynamic>.from(jourEntry.value);
+        for (final heureEntry in heures.entries) {
+          final heure = heureEntry.key;
+          final detail = heureEntry.value as String;
+          final parts = detail.split(' – ');
+          final moduleNom = parts.isNotEmpty ? parts[0].trim() : '';
+          final salleNom = parts.length > 1 ? parts[1].replaceFirst('Salle ', '').trim() : '';
+          final profNom = parts.length > 2 ? parts[2].trim() : '';
+
+          String moduleId = '';
+          String salleId = '';
+          String profId = '';
+
+          final modSnap = await _db
+              .collection('modules')
+              .where('nom', isEqualTo: moduleNom)
+              .limit(1)
+              .get();
+          if (modSnap.docs.isNotEmpty) moduleId = modSnap.docs.first.id;
+
+          final salleSnap = await _db
+              .collection('salles')
+              .where('nom', isEqualTo: salleNom)
+              .limit(1)
+              .get();
+          if (salleSnap.docs.isNotEmpty) salleId = salleSnap.docs.first.id;
+
+          final profSnap = await _db
+              .collection('professeurs')
+              .where('nom', isEqualTo: profNom)
+              .limit(1)
+              .get();
+          if (profSnap.docs.isNotEmpty) profId = profSnap.docs.first.id;
+
+          await _db.collection('emplois').add({
+            'classe': classeId,
+            'jour': jour,
+            'heure': heure,
+            'salle': salleId,
+            'module': moduleId,
+            'prof': profId,
+          });
+        }
       }
     }
   }
