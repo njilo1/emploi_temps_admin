@@ -24,7 +24,8 @@ class EmploiGenerator {
   /// 🔁 Génère automatiquement un emploi du temps optimisé
   Future<void> genererEmploisAutomatiquement() async {
     final modules = await _db.collection('modules').get();
-    final salles = await _db.collection('salles')
+    final salles = await _db
+        .collection('salles')
         .where('disponible', isEqualTo: true)
         .get();
 
@@ -97,16 +98,13 @@ class EmploiGenerator {
     final sallesSnap = await _db.collection('salles').get();
 
     final modulesMap = {
-      for (var m in modulesSnap.docs)
-        m.id: m.data()['nom'] ?? 'Module inconnu'
+      for (var m in modulesSnap.docs) m.id: m.data()['nom'] ?? 'Module inconnu'
     };
     final profsMap = {
-      for (var p in profsSnap.docs)
-        p.id: p.data()['nom'] ?? 'Professeur inconnu'
+      for (var p in profsSnap.docs) p.id: p.data()['nom'] ?? 'Professeur inconnu'
     };
     final sallesMap = {
-      for (var s in sallesSnap.docs)
-        s.id: s.data()['nom'] ?? 'Salle inconnue'
+      for (var s in sallesSnap.docs) s.id: s.data()['nom'] ?? 'Salle inconnue'
     };
 
     Map<String, Map<String, String>> emploi = {};
@@ -132,20 +130,31 @@ class EmploiGenerator {
     return emploi;
   }
 
-  /// 📥 Importe un emploi du temps depuis un fichier JSON structuré
+  /// 📥 Importe un emploi du temps depuis un JSON structuré
   Future<void> importerDepuisJson(Map<String, dynamic> data) async {
     final emplois = data['emplois'] as List<dynamic>?;
 
     if (emplois == null) return;
 
     for (final e in emplois) {
+      final String classe = e['classe']?.toString().trim() ?? '';
+      final String jour = e['jour']?.toString().trim() ?? '';
+      final String heure = e['heure']?.toString().trim() ?? '';
+      final String module = e['module']?.toString().trim() ?? '';
+      final String prof = e['prof']?.toString().trim() ?? '';
+      final String salle = e['salle']?.toString().trim() ?? '';
+
+      if (classe.isEmpty || jour.isEmpty || heure.isEmpty || module.isEmpty) {
+        continue; // Ignore les lignes incomplètes
+      }
+
       await _db.collection('emplois').add({
-        'classe': e['classe'],
-        'jour': e['jour'],
-        'heure': e['heure'],
-        'module': e['module'],
-        'prof': e['prof'],
-        'salle': e['salle'],
+        'classe': classe,
+        'jour': jour,
+        'heure': heure,
+        'module': module,
+        'prof': prof,
+        'salle': salle,
       });
     }
   }

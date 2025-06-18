@@ -43,7 +43,7 @@ dependencies:
   cloud_firestore_web: ^3.8.0
   firebase_storage_web: ^3.6.0
   http: ^1.2.1
-  file_selector: ^1.0.4
+  file_selector: ^1.0.3
   pdf: ^3.10.8
   printing: ^5.12.0
 

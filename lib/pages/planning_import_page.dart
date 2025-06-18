@@ -35,6 +35,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
 
   Future<void> _sendFile() async {
     if (_filePath == null) return;
+
     setState(() {
       _loading = true;
       _message = null;
@@ -43,9 +44,11 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
     try {
       final request = http.MultipartRequest(
         'POST',
-        // Sur l'émulateur Android, "localhost" doit être remplacé par 10.0.2.2
-        Uri.parse('http://10.0.2.2:8000/parse-word'),
+        // 🛜 Adresse IP de ton PC hébergeant le serveur Flask
+        Uri.parse('http://192.168.1.102:8000/parse-word'),
       );
+
+      // Ajout du fichier sélectionné
       request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
 
       final response = await request.send();
@@ -54,23 +57,24 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
       if (response.statusCode == 200) {
         final data = json.decode(body) as Map<String, dynamic>;
         await _generator.importerDepuisJson(data);
+
         setState(() {
-          _message = 'Planning importé avec succès';
+          _message = '✅ Planning importé avec succès';
         });
       } else {
         setState(() {
-          _message = "Erreur lors de l'importation du fichier";
+          _message = "❌ Erreur serveur : ${response.statusCode}";
         });
       }
     } catch (e) {
       setState(() {
-        _message = 'Erreur : $e';
+        _message = '❌ Erreur : $e';
+      });
+    } finally {
+      setState(() {
+        _loading = false;
       });
     }
-
-    setState(() {
-      _loading = false;
-    });
   }
 
   @override
@@ -88,21 +92,35 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
               label: const Text('Sélectionner le fichier Word'),
             ),
             const SizedBox(height: 10),
-            Text(_filePath ?? 'Aucun fichier sélectionné'),
+            Text(
+              _filePath ?? 'Aucun fichier sélectionné',
+              style: const TextStyle(fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 20),
             _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
               onPressed: _sendFile,
-              icon: const Icon(Icons.upload),
+              icon: const Icon(Icons.upload_file),
               label: const Text('Envoyer et importer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                textStyle: const TextStyle(fontSize: 16),
+              ),
             ),
             if (_message != null)
               Padding(
                 padding: const EdgeInsets.only(top: 20),
                 child: Text(
                   _message!,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _message!.contains("✅")
+                        ? Colors.green
+                        : Colors.red,
+                  ),
                 ),
               ),
           ],
