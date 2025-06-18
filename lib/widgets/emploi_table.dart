@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 class EmploiTable extends StatelessWidget {
   final List<String> jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   final List<String> heures = [
-    '07H30 - 10H00',
-    'Pause 1',
-    '10H15 - 12H45',
-    'Pause 2',
-    '13H00 - 15H30',
-    'Pause 3',
-    '15H45 - 18H15',
+    '07H30 - 10H15',
+    '10H30 - 13H15',
+    '13H15 - 14H00', // Pause de midi
+    '14H00 - 16H45',
+    '17H00 - 19H45',
   ];
 
   final Map<String, Map<String, String>> emploiData;
@@ -37,23 +35,18 @@ class EmploiTable extends StatelessWidget {
           )),
         ],
         rows: heures.map((heure) {
-          // Si c’est une pause, on affiche une ligne spéciale
-          if (heure.startsWith('Pause')) {
-            return DataRow(
-              color: MaterialStateProperty.all(Colors.grey.shade200),
-              cells: [
-                DataCell(Text(heure, style: const TextStyle(fontStyle: FontStyle.italic))),
-                ...jours.map((_) => const DataCell(Text(''))).toList(),
-              ],
-            );
-          }
-
-          // Sinon, afficher les cours normaux
+          final isPause = heure.contains('Pause');
           return DataRow(
+            color: isPause
+                ? MaterialStateProperty.all(Colors.grey.shade300)
+                : null,
             cells: [
-              DataCell(Text(heure)),
+              DataCell(Text(isPause ? 'Pause' : heure,
+                  style: isPause
+                      ? const TextStyle(fontStyle: FontStyle.italic)
+                      : null)),
               ...jours.map((jour) {
-                String contenu = emploiData[jour]?[heure] ?? '';
+                final contenu = emploiData[jour]?[heure] ?? '';
                 return DataCell(Text(contenu));
               }).toList(),
             ],

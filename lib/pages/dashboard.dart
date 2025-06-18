@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'add_entity_page.dart';
 import 'entity_list_page.dart';
-import 'emploi_page.dart'; // ✅ Assure-toi que ce fichier existe bien dans ce dossier
+import 'emploi_page.dart';
 import 'planning_import_page.dart';
 import 'emploi_global_page.dart';
+import 'add_module_page.dart';
+import 'module_list_page.dart';
+import 'add_filiere_page.dart';
+import 'add_departement_page.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -15,6 +19,18 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Tableau de bord - Admin'),
         backgroundColor: Colors.teal.shade700,
+        actions: [
+          IconButton(
+            tooltip: 'Importer Planning',
+            icon: const Icon(Icons.upload_file),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PlanningImportPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Column(
@@ -106,12 +122,23 @@ class AppDrawer extends StatelessWidget {
                 fieldsToShow: ['nom', 'capacité', 'disponible'],
               )),
           drawerItem(context, "Ajouter Filière", Icons.school,
-                  () => const AddEntityPage(collectionName: 'filieres')),
+                  () => const AddFilierePage()),
           drawerItem(context, "Voir Filières", Icons.view_list,
                   () => const EntityListPage(
                 collectionName: 'filieres',
                 fieldsToShow: ['nom', 'departement'],
               )),
+          drawerItem(context, "Ajouter Département", Icons.apartment,
+                  () => const AddDepartementPage()),
+          drawerItem(context, "Voir Départements", Icons.apartment,
+                  () => const EntityListPage(
+                collectionName: 'departements',
+                fieldsToShow: ['nom', 'code'],
+              )),
+          drawerItem(context, "Ajouter Module", Icons.book,
+                  () => const AddModulePage()),
+          drawerItem(context, "Voir Modules", Icons.book_outlined,
+                  () => const ModuleListPage()),
 
           // ✅ Lien vers l’emploi du temps
           drawerItem(context, "Générer Emploi du Temps", Icons.event_available,
