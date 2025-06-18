@@ -53,7 +53,7 @@ class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Emplois par filière')),
+      appBar: AppBar(title: const Text('Emplois par Departement')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
