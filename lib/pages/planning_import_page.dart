@@ -45,7 +45,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
       final request = http.MultipartRequest(
         'POST',
         // 🛜 Adresse IP de ton PC hébergeant le serveur Flask
-        Uri.parse('http://192.168.1.102:8000/parse-word'),
+          Uri.parse('http://10.213.46.183:8000/parse-word')
       );
 
       // Ajout du fichier sélectionné

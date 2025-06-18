@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class EmploiGenerator {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ✅ Tranches horaires selon le modèle de planning
   final List<String> tranchesHoraires = [
     '07H30 - 10H15',
     '10H30 - 13H15',
@@ -24,25 +23,28 @@ class EmploiGenerator {
   /// 🔁 Génère automatiquement un emploi du temps optimisé
   Future<void> genererEmploisAutomatiquement() async {
     final modules = await _db.collection('modules').get();
-    final salles = await _db
-        .collection('salles')
-        .where('disponible', isEqualTo: true)
-        .get();
+    final salles = await _db.collection('salles').where('disponible', isEqualTo: true).get();
+    final classes = await _db.collection('classes').get();
 
     final Map<String, Set<String>> salleOccupation = {};
     final Map<String, Set<String>> profOccupation = {};
 
-    // 🧹 Supprimer les anciens emplois du temps
+    // Supprimer les anciens emplois
     final anciensEmplois = await _db.collection('emplois').get();
     for (final doc in anciensEmplois.docs) {
       await doc.reference.delete();
     }
 
+    // Obtenir effectifs des classes
+    final Map<String, int> effectifClasse = {
+      for (final c in classes.docs) c.id: (c.data()['effectif'] as num?)?.toInt() ?? 0,
+    };
+
     for (final module in modules.docs) {
       final data = module.data();
       final String classeId = data['classe'];
       final String profId = data['prof'];
-      final int volume = (data['volume_horaire'] as num).toInt();
+      final int volume = (data['volume_horaire'] as num?)?.toInt() ?? 3;
       int heuresRestantes = volume;
 
       for (final jour in joursSemaine) {
@@ -51,19 +53,23 @@ class EmploiGenerator {
 
           final cle = '$jour-$heure';
 
-          // 🔍 Salle disponible
+          // 🔍 Salle disponible compatible avec l’effectif
           String? salleChoisie;
           for (final salle in salles.docs) {
+            final salleData = salle.data();
             final salleId = salle.id;
-            salleOccupation.putIfAbsent(cle, () => {});
-            if (!salleOccupation[cle]!.contains(salleId)) {
-              salleChoisie = salleId;
-              salleOccupation[cle]!.add(salleId);
-              break;
+            final int capacite = (salleData['effectif'] as num?)?.toInt() ?? 0;
+
+            if (capacite >= (effectifClasse[classeId] ?? 0)) {
+              salleOccupation.putIfAbsent(cle, () => {});
+              if (!salleOccupation[cle]!.contains(salleId)) {
+                salleChoisie = salleId;
+                salleOccupation[cle]!.add(salleId);
+                break;
+              }
             }
           }
 
-          // 🔍 Professeur disponible
           profOccupation.putIfAbsent(cle, () => {});
           if (salleChoisie != null && !profOccupation[cle]!.contains(profId)) {
             profOccupation[cle]!.add(profId);
@@ -86,26 +92,16 @@ class EmploiGenerator {
     }
   }
 
-  /// 📊 Récupère l'emploi du temps lisible pour une classe
+  /// 📊 Récupère un emploi du temps lisible pour une classe
   Future<Map<String, Map<String, String>>> getEmploisParClasse(String classeId) async {
-    final emploisSnap = await _db
-        .collection('emplois')
-        .where('classe', isEqualTo: classeId)
-        .get();
-
+    final emploisSnap = await _db.collection('emplois').where('classe', isEqualTo: classeId).get();
     final modulesSnap = await _db.collection('modules').get();
     final profsSnap = await _db.collection('professeurs').get();
     final sallesSnap = await _db.collection('salles').get();
 
-    final modulesMap = {
-      for (var m in modulesSnap.docs) m.id: m.data()['nom'] ?? 'Module inconnu'
-    };
-    final profsMap = {
-      for (var p in profsSnap.docs) p.id: p.data()['nom'] ?? 'Professeur inconnu'
-    };
-    final sallesMap = {
-      for (var s in sallesSnap.docs) s.id: s.data()['nom'] ?? 'Salle inconnue'
-    };
+    final modulesMap = {for (var m in modulesSnap.docs) m.id: m.data()['nom'] ?? 'Module inconnu'};
+    final profsMap = {for (var p in profsSnap.docs) p.id: p.data()['nom'] ?? 'Professeur inconnu'};
+    final sallesMap = {for (var s in sallesSnap.docs) s.id: s.data()['nom'] ?? 'Salle inconnue'};
 
     Map<String, Map<String, String>> emploi = {};
 
@@ -133,29 +129,36 @@ class EmploiGenerator {
   /// 📥 Importe un emploi du temps depuis un JSON structuré
   Future<void> importerDepuisJson(Map<String, dynamic> data) async {
     final emplois = data['emplois'] as List<dynamic>?;
-
     if (emplois == null) return;
 
+    final classes = await _db.collection('classes').get();
+    final salles = await _db.collection('salles').get();
+    final modules = await _db.collection('modules').get();
+    final profs = await _db.collection('professeurs').get();
+
+    final classesMap = {for (var c in classes.docs) c.data()['nom']: c.id};
+    final sallesMap = {for (var s in salles.docs) s.data()['nom']: s.id};
+    final modulesMap = {for (var m in modules.docs) m.data()['nom']: m.id};
+    final profsMap = {for (var p in profs.docs) p.data()['nom']: p.id};
+
     for (final e in emplois) {
-      final String classe = e['classe']?.toString().trim() ?? '';
-      final String jour = e['jour']?.toString().trim() ?? '';
-      final String heure = e['heure']?.toString().trim() ?? '';
-      final String module = e['module']?.toString().trim() ?? '';
-      final String prof = e['prof']?.toString().trim() ?? '';
-      final String salle = e['salle']?.toString().trim() ?? '';
+      final String? classeId = classesMap[e['classe']];
+      final String? moduleId = modulesMap[e['module']];
+      final String? profId = profsMap[e['prof']];
+      final String? salleId = sallesMap[e['salle']];
 
-      if (classe.isEmpty || jour.isEmpty || heure.isEmpty || module.isEmpty) {
-        continue; // Ignore les lignes incomplètes
+      if (classeId != null && moduleId != null && profId != null && salleId != null) {
+        await _db.collection('emplois').add({
+          'classe': classeId,
+          'jour': e['jour'],
+          'heure': e['heure'],
+          'module': moduleId,
+          'prof': profId,
+          'salle': salleId,
+        });
+      } else {
+        print("⚠️ Entrée ignorée : ${e.toString()}");
       }
-
-      await _db.collection('emplois').add({
-        'classe': classe,
-        'jour': jour,
-        'heure': heure,
-        'module': module,
-        'prof': prof,
-        'salle': salle,
-      });
     }
   }
 }
