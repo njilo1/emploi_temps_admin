@@ -26,6 +26,10 @@ class EmploiGenerator {
     final salles = await _db.collection('salles').where('disponible', isEqualTo: true).get();
     final classes = await _db.collection('classes').get();
 
+    final Map<String, int> effectifClasse = {
+      for (final c in classes.docs) c.id: (c.data()['effectif'] as num?)?.toInt() ?? 0,
+    };
+
     final Map<String, Set<String>> salleOccupation = {};
     final Map<String, Set<String>> profOccupation = {};
 
@@ -34,11 +38,6 @@ class EmploiGenerator {
     for (final doc in anciensEmplois.docs) {
       await doc.reference.delete();
     }
-
-    // Obtenir effectifs des classes
-    final Map<String, int> effectifClasse = {
-      for (final c in classes.docs) c.id: (c.data()['effectif'] as num?)?.toInt() ?? 0,
-    };
 
     for (final module in modules.docs) {
       final data = module.data();
@@ -141,24 +140,33 @@ class EmploiGenerator {
     final modulesMap = {for (var m in modules.docs) m.data()['nom']: m.id};
     final profsMap = {for (var p in profs.docs) p.data()['nom']: p.id};
 
+    // 🧹 Supprimer anciens emplois
+    final anciens = await _db.collection('emplois').get();
+    for (final doc in anciens.docs) {
+      await doc.reference.delete();
+    }
+
     for (final e in emplois) {
       final String? classeId = classesMap[e['classe']];
       final String? moduleId = modulesMap[e['module']];
       final String? profId = profsMap[e['prof']];
       final String? salleId = sallesMap[e['salle']];
+      final jour = e['jour'];
+      final heure = e['heure'];
 
-      if (classeId != null && moduleId != null && profId != null && salleId != null) {
-        await _db.collection('emplois').add({
-          'classe': classeId,
-          'jour': e['jour'],
-          'heure': e['heure'],
-          'module': moduleId,
-          'prof': profId,
-          'salle': salleId,
-        });
-      } else {
-        print("⚠️ Entrée ignorée : ${e.toString()}");
+      if ([classeId, moduleId, profId, salleId, jour, heure].contains(null)) {
+        print("⚠️ Entrée ignorée : $e");
+        continue;
       }
+
+      await _db.collection('emplois').add({
+        'classe': classeId,
+        'jour': jour,
+        'heure': heure,
+        'module': moduleId,
+        'prof': profId,
+        'salle': salleId,
+      });
     }
   }
 }

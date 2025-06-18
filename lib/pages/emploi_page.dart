@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/emploi_generator.dart';
+import '../services/pdf_exporter.dart';
 import '../widgets/emploi_table.dart';
+import 'package:file_selector/file_selector.dart';
 
 class EmploiPage extends StatefulWidget {
   const EmploiPage({super.key});
@@ -19,6 +21,7 @@ class _EmploiPageState extends State<EmploiPage> {
   List<Map<String, dynamic>> _classes = [];
   String? _selectedClassId;
   Map<String, Map<String, String>> emplois = {};
+  final PdfExporter _pdfExporter = PdfExporter();
 
   @override
   void initState() {
@@ -64,6 +67,28 @@ class _EmploiPageState extends State<EmploiPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _exportPdf() async {
+    if (_selectedClassId == null) return;
+    final XTypeGroup typeGroup = const XTypeGroup(label: 'PDF', extensions: ['pdf']);
+    final path = await getSavePath(suggestedName: 'emploi.pdf', acceptedTypeGroups: [typeGroup]);
+    if (path == null) return;
+
+    try {
+      final data = emplois.isNotEmpty ? emplois : await _generator.getEmploisParClasse(_selectedClassId!);
+      await _pdfExporter.exportEmploi(path, data);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('PDF exporté')),);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur export: $e')),
+        );
+      }
     }
   }
 
@@ -120,6 +145,16 @@ class _EmploiPageState extends State<EmploiPage> {
               ),
             ),
             const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: _exportPdf,
+              icon: const Icon(Icons.picture_as_pdf),
+              label: const Text('Exporter PDF'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.teal,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+            ),
+            const SizedBox(height: 12),
             _isLoading
                 ? const CircularProgressIndicator()
                 : ElevatedButton.icon(

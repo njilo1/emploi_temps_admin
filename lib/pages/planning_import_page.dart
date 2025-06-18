@@ -44,11 +44,10 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
     try {
       final request = http.MultipartRequest(
         'POST',
-        // 🛜 Adresse IP de ton PC hébergeant le serveur Flask
-          Uri.parse('http://10.213.46.183:8000/parse-word')
+        // Remplace cette IP si besoin (10.0.2.2 pour Android emulator, sinon l'IP locale du PC)
+        Uri.parse('http://10.0.2.2:8000/parse-word'),
       );
 
-      // Ajout du fichier sélectionné
       request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
 
       final response = await request.send();
@@ -100,16 +99,17 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
             _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
-              onPressed: _sendFile,
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Envoyer et importer'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle: const TextStyle(fontSize: 16),
-              ),
-            ),
+                    onPressed: _sendFile,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Envoyer et importer'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      textStyle: const TextStyle(fontSize: 16),
+                    ),
+                  ),
             if (_message != null)
               Padding(
                 padding: const EdgeInsets.only(top: 20),
@@ -117,9 +117,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
                   _message!,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: _message!.contains("✅")
-                        ? Colors.green
-                        : Colors.red,
+                    color: _message!.contains("✅") ? Colors.green : Colors.red,
                   ),
                 ),
               ),

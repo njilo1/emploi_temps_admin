@@ -19,6 +19,18 @@ class DashboardPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Tableau de bord - Admin'),
         backgroundColor: Colors.teal.shade700,
+        actions: [
+          IconButton(
+            tooltip: 'Importer Planning',
+            icon: const Icon(Icons.upload_file),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PlanningImportPage()),
+              );
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Column(
