@@ -1,10 +1,12 @@
-// lib/pages/emploi_page.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import '../services/emploi_generator.dart';
 import '../services/pdf_exporter.dart';
 import '../widgets/emploi_table.dart';
-import 'package:file_selector/file_selector.dart';
 
 class EmploiPage extends StatefulWidget {
   const EmploiPage({super.key});
@@ -15,13 +17,13 @@ class EmploiPage extends StatefulWidget {
 
 class _EmploiPageState extends State<EmploiPage> {
   final EmploiGenerator _generator = EmploiGenerator();
+  final PdfExporter _pdfExporter = PdfExporter();
+
   bool _isLoading = false;
   String? _message;
-
   List<Map<String, dynamic>> _classes = [];
   String? _selectedClassId;
   Map<String, Map<String, String>> emplois = {};
-  final PdfExporter _pdfExporter = PdfExporter();
 
   @override
   void initState() {
@@ -48,7 +50,7 @@ class _EmploiPageState extends State<EmploiPage> {
     setState(() {
       _isLoading = true;
       _message = null;
-      emplois = {}; // réinitialise le tableau affiché
+      emplois = {};
     });
 
     try {
@@ -58,7 +60,6 @@ class _EmploiPageState extends State<EmploiPage> {
         emplois = result;
         _message = "✅ Emploi du temps généré avec succès !";
       });
-      debugPrint('Emplois récupérés: $result');
     } catch (e) {
       setState(() {
         _message = "❌ Erreur : $e";
@@ -72,16 +73,31 @@ class _EmploiPageState extends State<EmploiPage> {
 
   Future<void> _exportPdf() async {
     if (_selectedClassId == null) return;
-    final XTypeGroup typeGroup = const XTypeGroup(label: 'PDF', extensions: ['pdf']);
-    final path = await getSavePath(suggestedName: 'emploi.pdf', acceptedTypeGroups: [typeGroup]);
-    if (path == null) return;
 
     try {
-      final data = emplois.isNotEmpty ? emplois : await _generator.getEmploisParClasse(_selectedClassId!);
+      // 🔐 Demande de permission Android
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Permission de stockage refusée')),
+        );
+        return;
+      }
+
+      final Directory? downloadsDir = await getExternalStorageDirectory();
+      if (downloadsDir == null) throw Exception("Dossier inaccessible");
+
+      final String path = '${downloadsDir.path}/emploi_${_selectedClassId!}.pdf';
+      final data = emplois.isNotEmpty
+          ? emplois
+          : await _generator.getEmploisParClasse(_selectedClassId!);
+
       await _pdfExporter.exportEmploi(path, data);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF exporté')),);
+          SnackBar(content: Text('📄 PDF exporté : $path')),
+        );
       }
     } catch (e) {
       if (mounted) {

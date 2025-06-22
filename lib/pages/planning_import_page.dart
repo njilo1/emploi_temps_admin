@@ -45,7 +45,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
       final request = http.MultipartRequest(
         'POST',
         // Remplace cette IP si besoin (10.0.2.2 pour Android emulator, sinon l'IP locale du PC)
-        Uri.parse('http://10.0.2.2:8000/parse-word'),
+        Uri.parse('http://10.213.46.183:8000/parse-word'),
       );
 
       request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
