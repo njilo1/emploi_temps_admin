@@ -1,70 +1,44 @@
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:file_selector/file_selector.dart';
-import 'package:http/http.dart' as http;
-import '../services/emploi_generator.dart';
+import 'package:file_picker/file_picker.dart';
+import '../services/excel_importer.dart';
 
-class PlanningImportPage extends StatefulWidget {
-  const PlanningImportPage({super.key});
+/// Page d'import d'un planning depuis un fichier Excel
+class ImportExcelPage extends StatefulWidget {
+  const ImportExcelPage({super.key});
 
   @override
-  State<PlanningImportPage> createState() => _PlanningImportPageState();
+  State<ImportExcelPage> createState() => _ImportExcelPageState();
 }
 
-class _PlanningImportPageState extends State<PlanningImportPage> {
+class _ImportExcelPageState extends State<ImportExcelPage> {
   String? _filePath;
   bool _loading = false;
   String? _message;
-  final EmploiGenerator _generator = EmploiGenerator();
+  final ExcelImporter _importer = ExcelImporter();
 
   Future<void> _pickFile() async {
-    const XTypeGroup typeGroup = XTypeGroup(
-      label: 'Documents Word',
-      extensions: ['docx'],
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx'],
     );
-
-    final XFile? fichier = await openFile(acceptedTypeGroups: [typeGroup]);
-
-    if (fichier != null) {
+    if (result != null && result.files.single.path != null) {
       setState(() {
-        _filePath = fichier.path;
+        _filePath = result.files.single.path;
       });
     }
   }
 
-  Future<void> _sendFile() async {
+  Future<void> _import() async {
     if (_filePath == null) return;
-
     setState(() {
       _loading = true;
       _message = null;
     });
-
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        // Remplace cette IP si besoin (10.0.2.2 pour Android emulator, sinon l'IP locale du PC)
-        Uri.parse('http://10.0.2.2:8000/parse-word'),
-      );
-
-      request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
-
-      final response = await request.send();
-      final body = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        final data = json.decode(body) as Map<String, dynamic>;
-        await _generator.importerDepuisJson(data);
-
-        setState(() {
-          _message = '✅ Planning importé avec succès';
-        });
-      } else {
-        setState(() {
-          _message = "❌ Erreur serveur : ${response.statusCode}";
-        });
-      }
+      final count = await _importer.importFile(_filePath!);
+      setState(() {
+        _message = '✅ Import terminé : $count entrées ajoutées';
+      });
     } catch (e) {
       setState(() {
         _message = '❌ Erreur : $e';
@@ -79,7 +53,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Importer un planning')),
+      appBar: AppBar(title: const Text('Importer un planning Excel')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -88,7 +62,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
             ElevatedButton.icon(
               onPressed: _pickFile,
               icon: const Icon(Icons.attach_file),
-              label: const Text('Sélectionner le fichier Word'),
+              label: const Text('Sélectionner le fichier Excel'),
             ),
             const SizedBox(height: 10),
             Text(
@@ -99,9 +73,9 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
             _loading
                 ? const Center(child: CircularProgressIndicator())
                 : ElevatedButton.icon(
-                    onPressed: _sendFile,
+                    onPressed: _import,
                     icon: const Icon(Icons.upload_file),
-                    label: const Text('Envoyer et importer'),
+                    label: const Text('Importer'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal.shade700,
                       foregroundColor: Colors.white,
@@ -117,7 +91,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
                   _message!,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: _message!.contains("✅") ? Colors.green : Colors.red,
+                    color: _message!.contains('✅') ? Colors.green : Colors.red,
                   ),
                 ),
               ),

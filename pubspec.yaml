@@ -22,6 +22,8 @@ dependencies:
   firebase_storage_web: ^3.6.0
   http: ^1.2.1
   file_selector: ^1.0.4
+  file_picker: ^6.1.1
+  excel: ^2.0.0
   pdf: ^3.10.8
   printing: ^5.12.0
 

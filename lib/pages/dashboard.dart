@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'add_entity_page.dart';
 import 'entity_list_page.dart';
 import 'emploi_page.dart';
-import 'planning_import_page.dart';
+import 'import_excel_page.dart';
 import 'emploi_global_page.dart';
 import 'add_module_page.dart';
 import 'module_list_page.dart';
@@ -26,7 +26,7 @@ class DashboardPage extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const PlanningImportPage()),
+                MaterialPageRoute(builder: (_) => const ImportExcelPage()),
               );
             },
           ),
@@ -144,7 +144,7 @@ class AppDrawer extends StatelessWidget {
           drawerItem(context, "Générer Emploi du Temps", Icons.event_available,
                   () => EmploiPage()), // ✅ const supprimé ici aussi
           drawerItem(context, "Importer Planning", Icons.upload_file,
-                  () => const PlanningImportPage()),
+                  () => const ImportExcelPage()),
           drawerItem(context, "Emploi global", Icons.table_rows,
                   () => const EmploiGlobalPage()),
         ],
