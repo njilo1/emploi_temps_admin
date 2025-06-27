@@ -8,6 +8,7 @@ import 'add_module_page.dart';
 import 'module_list_page.dart';
 import 'add_filiere_page.dart';
 import 'add_departement_page.dart';
+import '../services/emploi_generator.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -54,6 +55,32 @@ class DashboardPage extends StatelessWidget {
               },
               icon: const Icon(Icons.calendar_today),
               label: const Text("Générer Emploi du temps"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                textStyle: const TextStyle(fontSize: 16),
+              ),
+              ),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await EmploiGenerator().importerDepuisFichier('assets/emploi_test.json');
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Import JSON réussi ✅')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Erreur : ' + e.toString())),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Importer depuis JSON'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal,
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

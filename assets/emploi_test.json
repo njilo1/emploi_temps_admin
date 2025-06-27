@@ -1,0 +1,12 @@
+{
+  "emplois": [
+    {
+      "classe": "TIC L2",
+      "jour": "Lundi",
+      "heure": "07H30 - 10H15",
+      "module": "Programmation avancée",
+      "salle": "Salle S3",
+      "prof": "Dr. NKO’O"
+    }
+  ]
+}

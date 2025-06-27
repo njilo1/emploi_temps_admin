@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class EmploiGenerator {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -168,5 +170,12 @@ class EmploiGenerator {
         'salle': salleId,
       });
     }
+  }
+
+  /// 📄 Charge un fichier JSON d'emplois local et l'importe dans Firestore
+  Future<void> importerDepuisFichier(String path) async {
+    final contenu = await rootBundle.loadString(path);
+    final Map<String, dynamic> data = json.decode(contenu) as Map<String, dynamic>;
+    await importerDepuisJson(data);
   }
 }
