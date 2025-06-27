@@ -75,19 +75,27 @@ class _EmploiPageState extends State<EmploiPage> {
     if (_selectedClassId == null) return;
 
     try {
-      // 🔐 Demande de permission Android
-      final status = await Permission.storage.request();
-      if (!status.isGranted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permission de stockage refusée')),
-        );
-        return;
+      Directory? saveDir;
+
+      if (Platform.isAndroid) {
+        // 🔐 Permission requise uniquement sur Android
+        final status = await Permission.storage.request();
+        if (!status.isGranted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permission de stockage refusée')),
+          );
+          return;
+        }
+        saveDir = await getExternalStorageDirectory();
+      } else {
+        // Sur desktop et iOS, on utilise le dossier "Téléchargements" s'il est disponible
+        saveDir = await getDownloadsDirectory();
+        saveDir ??= await getApplicationDocumentsDirectory();
       }
 
-      final Directory? downloadsDir = await getExternalStorageDirectory();
-      if (downloadsDir == null) throw Exception("Dossier inaccessible");
+      if (saveDir == null) throw Exception('Dossier inaccessible');
 
-      final String path = '${downloadsDir.path}/emploi_${_selectedClassId!}.pdf';
+      final String path = '${saveDir.path}/emploi_${_selectedClassId!}.pdf';
       final data = emplois.isNotEmpty
           ? emplois
           : await _generator.getEmploisParClasse(_selectedClassId!);
