@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/firestore_service.dart';
+import '../services/api_service.dart';
 
 class AddFiliereForm extends StatefulWidget {
   const AddFiliereForm({Key? key}) : super(key: key);
@@ -13,7 +13,6 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
   final _nomController = TextEditingController();
   final _departementController = TextEditingController();
 
-  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +58,7 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    await _firestoreService.addData('filieres', {
+                    await ApiService.addFiliere({
                       'nom': _nomController.text.trim(),
                       'departement': _departementController.text.trim(),
                     });

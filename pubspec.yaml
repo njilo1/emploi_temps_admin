@@ -13,13 +13,7 @@ dependencies:
 
   cupertino_icons: ^1.0.8
   firebase_core: ^2.32.0
-  cloud_firestore: ^4.15.0
-  firebase_auth: ^4.17.0
-  firebase_storage: ^11.6.0
   flutter_hooks: ^0.20.5
-  firebase_auth_web: ^5.8.0
-  cloud_firestore_web: ^3.8.0
-  firebase_storage_web: ^3.6.0
   http: ^1.2.1
   file_selector: ^1.0.3
   pdf: ^3.10.8

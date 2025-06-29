@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/firestore_service.dart';
+import '../services/api_service.dart';
 
 class AddSalleForm extends StatefulWidget {
   const AddSalleForm({Key? key}) : super(key: key);
@@ -15,7 +14,6 @@ class _AddSalleFormState extends State<AddSalleForm> {
   final _capaciteController = TextEditingController();
   bool _isDisponible = true; // Valeur par défaut : disponible
 
-  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void dispose() {
@@ -33,7 +31,7 @@ class _AddSalleFormState extends State<AddSalleForm> {
       };
 
       try {
-        await _firestoreService.addData('salles', data);
+        await ApiService.addSalle(data);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Salle ajoutée avec succès')),
         );

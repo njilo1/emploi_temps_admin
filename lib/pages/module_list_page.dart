@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/api_service.dart';
 import 'add_module_page.dart';
 
 /// Page listant l'ensemble des modules enregistrés dans Firestore
-class ModuleListPage extends StatelessWidget {
+class ModuleListPage extends StatefulWidget {
   const ModuleListPage({Key? key}) : super(key: key);
 
+  @override
+  State<ModuleListPage> createState() => _ModuleListPageState();
+}
+
+class _ModuleListPageState extends State<ModuleListPage> {
   Future<String> _getDocName(String collection, String id) async {
-    final doc = await FirebaseFirestore.instance
-        .collection(collection)
-        .doc(id)
-        .get();
-    final data = doc.data() as Map<String, dynamic>?;
-    return data != null ? (data['nom'] ?? '') : '';
+    switch (collection) {
+      case 'classes':
+        final classes = await ApiService.fetchClasses();
+        return classes.firstWhere((c) => c['id'].toString() == id,
+            orElse: () => {})['nom'] ?? '';
+      case 'salles':
+        final salles = await ApiService.fetchSalles();
+        return salles.firstWhere((s) => s['id'].toString() == id,
+            orElse: () => {})['nom'] ?? '';
+      default:
+        return '';
+    }
   }
 
   Future<void> _delete(String id) async {
-    await FirebaseFirestore.instance.collection('modules').doc(id).delete();
+    await ApiService.deleteModule(id);
+    setState(() {});
   }
 
   @override
@@ -30,9 +42,8 @@ class ModuleListPage extends StatelessWidget {
         ),
         child: const Icon(Icons.add),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream:
-            FirebaseFirestore.instance.collection('modules').snapshots(),
+      body: FutureBuilder<List<dynamic>>(
+        future: ApiService.fetchModules(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
             return const Center(child: Text('Erreur de chargement'));
@@ -40,15 +51,15 @@ class ModuleListPage extends StatelessWidget {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          final docs = snapshot.data!.docs;
+          final docs = snapshot.data!;
           if (docs.isEmpty) {
             return const Center(child: Text('Aucun module'));
           }
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final doc = docs[index];
-              final data = doc.data() as Map<String, dynamic>;
+              final data = docs[index] as Map<String, dynamic>;
+              final docId = data['id']?.toString() ?? '';
               return FutureBuilder<List<String>>( 
                 future: Future.wait([
                   _getDocName('classes', data['classe'] ?? ''),
@@ -76,7 +87,7 @@ class ModuleListPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => AddModulePage(moduleId: doc.id),
+                                  builder: (_) => AddModulePage(moduleId: docId),
                                 ),
                               );
                             },
@@ -102,7 +113,7 @@ class ModuleListPage extends StatelessWidget {
                                 ),
                               );
                               if (confirm == true) {
-                                await _delete(doc.id);
+                                await _delete(docId);
                               }
                             },
                           ),

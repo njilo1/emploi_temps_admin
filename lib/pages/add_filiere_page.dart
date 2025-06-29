@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/api_service.dart';
 
 /// Formulaire d'ajout d'une filière liée à un département
 class AddFilierePage extends StatefulWidget {
@@ -30,24 +30,21 @@ class _AddFilierePageState extends State<AddFilierePage> {
                 validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
               ),
               const SizedBox(height: 16),
-              FutureBuilder<QuerySnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('departements')
-                    .get(),
+              FutureBuilder<List<dynamic>>(
+                future: ApiService.fetchDepartements(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
-                  final deps = snapshot.data!.docs;
+                  final deps = snapshot.data!;
                   return DropdownButtonFormField<String>(
                     value: _selectedDepartementId,
                     decoration:
                         const InputDecoration(labelText: 'Département'),
                     items: deps
                         .map((d) => DropdownMenuItem(
-                              value: d.id,
-                              child: Text(
-                                  (d.data() as Map<String, dynamic>)['nom'] ?? ''),
+                              value: d['id']?.toString() ?? '',
+                              child: Text(d['nom'] ?? ''),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedDepartementId = v),
@@ -59,7 +56,7 @@ class _AddFilierePageState extends State<AddFilierePage> {
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    await FirebaseFirestore.instance.collection('filieres').add({
+                    await ApiService.addFiliere({
                       'nom': _nomController.text.trim(),
                       'departement': _selectedDepartementId,
                     });

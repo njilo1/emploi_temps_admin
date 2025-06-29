@@ -1,6 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../services/firestore_service.dart';
+import '../services/api_service.dart';
 
 class AddClasseForm extends StatefulWidget {
   const AddClasseForm({Key? key}) : super(key: key);
@@ -15,7 +14,6 @@ class _AddClasseFormState extends State<AddClasseForm> {
   final _effectifController = TextEditingController();
   String? _selectedFiliere;
 
-  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
@@ -59,18 +57,19 @@ class _AddClasseFormState extends State<AddClasseForm> {
               const SizedBox(height: 15),
 
               // Liste des filières (dropdown)
-              FutureBuilder<QuerySnapshot>(
-                future: FirebaseFirestore.instance.collection('filieres').get(),
+              FutureBuilder<List<dynamic>>(
+                future: ApiService.fetchFilieres(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
 
-                  final filieres = snapshot.data!.docs;
+                  final filieres = snapshot.data!;
 
                   return DropdownButtonFormField<String>(
                     value: _selectedFiliere,
-                    items: filieres.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      final filiereName = data['nom'] ?? 'Inconnu';
+                    items: filieres.map((f) {
+                      final filiereName = f['nom'] ?? 'Inconnu';
                       return DropdownMenuItem<String>(
                         value: filiereName,
                         child: Text(filiereName),
@@ -98,7 +97,7 @@ class _AddClasseFormState extends State<AddClasseForm> {
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    await _firestoreService.addData('classes', {
+                    await ApiService.addClasse({
                       'nom': _nomController.text.trim(),
                       'filiere': _selectedFiliere,
                       'effectif': int.parse(_effectifController.text.trim()),

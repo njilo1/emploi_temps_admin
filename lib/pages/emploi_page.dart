@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../services/emploi_generator.dart';
+import '../services/api_service.dart';
+
 import '../services/pdf_exporter.dart';
 import '../widgets/emploi_table.dart';
 
@@ -16,7 +16,6 @@ class EmploiPage extends StatefulWidget {
 }
 
 class _EmploiPageState extends State<EmploiPage> {
-  final EmploiGenerator _generator = EmploiGenerator();
   final PdfExporter _pdfExporter = PdfExporter();
 
   bool _isLoading = false;
@@ -32,12 +31,14 @@ class _EmploiPageState extends State<EmploiPage> {
   }
 
   Future<void> _chargerClasses() async {
-    final snapshot = await FirebaseFirestore.instance.collection('classes').get();
+    final data = await ApiService.fetchClasses();
     setState(() {
-      _classes = snapshot.docs.map((doc) => {
-        'id': doc.id,
-        'nom': (doc.data()['nom'] ?? 'Sans nom'),
-      }).toList();
+      _classes = data
+          .map((c) => {
+                'id': c['id'].toString(),
+                'nom': c['nom'] ?? 'Sans nom',
+              })
+          .toList();
       if (_classes.isNotEmpty) {
         _selectedClassId = _classes.first['id'];
       }
@@ -54,8 +55,8 @@ class _EmploiPageState extends State<EmploiPage> {
     });
 
     try {
-      await _generator.genererEmploisAutomatiquement();
-      final result = await _generator.getEmploisParClasse(_selectedClassId!);
+      await ApiService.generateEmplois();
+      final result = await ApiService.fetchEmploiParClasse(_selectedClassId!);
       setState(() {
         emplois = result;
         _message = "✅ Emploi du temps généré avec succès !";
@@ -98,7 +99,7 @@ class _EmploiPageState extends State<EmploiPage> {
       final String path = '${saveDir.path}/emploi_${_selectedClassId!}.pdf';
       final data = emplois.isNotEmpty
           ? emplois
-          : await _generator.getEmploisParClasse(_selectedClassId!);
+          : await ApiService.fetchEmploiParClasse(_selectedClassId!);
 
       await _pdfExporter.exportEmploi(path, data);
 

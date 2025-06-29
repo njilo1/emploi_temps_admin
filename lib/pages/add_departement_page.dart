@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/api_service.dart';
 
 /// Page d'ajout d'un département
 class AddDepartementPage extends StatefulWidget {
@@ -16,7 +16,7 @@ class _AddDepartementPageState extends State<AddDepartementPage> {
 
   Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
-      await FirebaseFirestore.instance.collection('departements').add({
+      await ApiService.addDepartement({
         'nom': _nomController.text.trim(),
         'code': _codeController.text.trim(),
       });

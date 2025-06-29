@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/firestore_service.dart';
+import '../services/api_service.dart';
 
 class AddProfesseurForm extends StatefulWidget {
   const AddProfesseurForm({Key? key}) : super(key: key);
@@ -13,7 +12,6 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _dispoController = TextEditingController();
-  final FirestoreService _firestoreService = FirestoreService();
 
   @override
   void dispose() {
@@ -30,7 +28,7 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
       };
 
       try {
-        await _firestoreService.addData('professeurs', data);
+        await ApiService.addProfesseur(data);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Professeur ajouté avec succès')),
         );

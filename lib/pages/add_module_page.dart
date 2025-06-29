@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/api_service.dart';
 
 /// Page permettant d'ajouter ou de modifier un module (cours)
 class AddModulePage extends StatefulWidget {
@@ -45,20 +45,14 @@ class _AddModulePageState extends State<AddModulePage> {
   }
 
   Future<void> _loadModule() async {
-    final doc = await FirebaseFirestore.instance
-        .collection('modules')
-        .doc(widget.moduleId)
-        .get();
-    final data = doc.data();
-    if (data != null) {
-      _nomController.text = data['nom'] ?? '';
-      _selectedTranche = data['heure'];
-      _selectedJour = data['jour'];
-      _selectedClasseId = data['classe'];
-      _selectedSalleId = data['salle'];
-      _selectedProfId = data['prof'];
-      setState(() {});
-    }
+    final data = await ApiService.fetchModule(widget.moduleId!);
+    _nomController.text = data['nom'] ?? '';
+    _selectedTranche = data['heure'];
+    _selectedJour = data['jour'];
+    _selectedClasseId = data['classe'];
+    _selectedSalleId = data['salle'];
+    _selectedProfId = data['prof'];
+    setState(() {});
   }
 
   Future<void> _saveModule() async {
@@ -73,12 +67,9 @@ class _AddModulePageState extends State<AddModulePage> {
       };
       try {
         if (widget.moduleId == null) {
-          await FirebaseFirestore.instance.collection('modules').add(data);
+          await ApiService.addModule(data);
         } else {
-          await FirebaseFirestore.instance
-              .collection('modules')
-              .doc(widget.moduleId)
-              .update(data);
+          await ApiService.updateModule(widget.moduleId!, data);
         }
         if (mounted) Navigator.pop(context);
       } catch (e) {
@@ -128,21 +119,20 @@ class _AddModulePageState extends State<AddModulePage> {
                 validator: (v) => v == null ? 'Choisir un jour' : null,
               ),
               const SizedBox(height: 16),
-              FutureBuilder<QuerySnapshot>(
-                future:
-                    FirebaseFirestore.instance.collection('classes').get(),
+              FutureBuilder<List<dynamic>>(
+                future: ApiService.fetchClasses(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
-                  final classes = snapshot.data!.docs;
+                  final classes = snapshot.data!;
                   return DropdownButtonFormField<String>(
                     value: _selectedClasseId,
                     decoration: const InputDecoration(labelText: 'Classe'),
                     items: classes
                         .map((c) => DropdownMenuItem(
-                            value: c.id,
-                            child: Text((c.data() as Map<String, dynamic>)['nom'] ?? '')))
+                            value: c['id']?.toString() ?? '',
+                            child: Text(c['nom'] ?? '')))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedClasseId = v),
                     validator: (v) => v == null ? 'Choisir une classe' : null,
@@ -150,21 +140,20 @@ class _AddModulePageState extends State<AddModulePage> {
                 },
               ),
               const SizedBox(height: 16),
-              FutureBuilder<QuerySnapshot>(
-                future:
-                    FirebaseFirestore.instance.collection('salles').get(),
+              FutureBuilder<List<dynamic>>(
+                future: ApiService.fetchSalles(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
-                  final salles = snapshot.data!.docs;
+                  final salles = snapshot.data!;
                   return DropdownButtonFormField<String>(
                     value: _selectedSalleId,
                     decoration: const InputDecoration(labelText: 'Salle'),
                     items: salles
                         .map((s) => DropdownMenuItem(
-                            value: s.id,
-                            child: Text((s.data() as Map<String, dynamic>)['nom'] ?? '')))
+                            value: s['id']?.toString() ?? '',
+                            child: Text(s['nom'] ?? '')))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedSalleId = v),
                     validator: (v) => v == null ? 'Choisir une salle' : null,
@@ -172,22 +161,20 @@ class _AddModulePageState extends State<AddModulePage> {
                 },
               ),
               const SizedBox(height: 16),
-              FutureBuilder<QuerySnapshot>(
-                future: FirebaseFirestore.instance
-                    .collection('professeurs')
-                    .get(),
+              FutureBuilder<List<dynamic>>(
+                future: ApiService.fetchProfesseurs(),
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
-                  final profs = snapshot.data!.docs;
+                  final profs = snapshot.data!;
                   return DropdownButtonFormField<String>(
                     value: _selectedProfId,
                     decoration: const InputDecoration(labelText: 'Professeur'),
                     items: profs
                         .map((p) => DropdownMenuItem(
-                              value: p.id,
-                              child: Text((p.data() as Map<String, dynamic>)['nom'] ?? ''),
+                              value: p['id']?.toString() ?? '',
+                              child: Text(p['nom'] ?? ''),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => _selectedProfId = v),

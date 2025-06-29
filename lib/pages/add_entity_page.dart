@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/api_service.dart';
 
 class AddEntityPage extends StatefulWidget {
   final String collectionName;
@@ -82,9 +82,28 @@ class _AddEntityPageState extends State<AddEntityPage> {
       _formKey.currentState!.save();
 
       try {
-        await FirebaseFirestore.instance
-            .collection(widget.collectionName)
-            .add(_formData);
+        switch (widget.collectionName) {
+          case 'classes':
+            await ApiService.addClasse(_formData);
+            break;
+          case 'filieres':
+            await ApiService.addFiliere(_formData);
+            break;
+          case 'professeurs':
+            await ApiService.addProfesseur(_formData);
+            break;
+          case 'salles':
+            await ApiService.addSalle(_formData);
+            break;
+          case 'modules':
+            await ApiService.addModule(_formData);
+            break;
+          case 'departements':
+            await ApiService.addDepartement(_formData);
+            break;
+          default:
+            break;
+        }
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Ajout réussi ✅")),

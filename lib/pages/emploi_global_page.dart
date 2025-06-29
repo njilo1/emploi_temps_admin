@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/emploi_generator.dart';
+import '../services/api_service.dart';
 import '../widgets/emploi_table.dart';
 
 class EmploiGlobalPage extends StatefulWidget {
@@ -11,7 +10,6 @@ class EmploiGlobalPage extends StatefulWidget {
 }
 
 class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
-  final EmploiGenerator _generator = EmploiGenerator();
   List<String> _filieres = [];
   String? _filiere;
   Map<String, Map<String, Map<String, String>>> _emploiParClasse = {};
@@ -23,8 +21,8 @@ class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
   }
 
   Future<void> _chargerFilieres() async {
-    final snapshot = await FirebaseFirestore.instance.collection('classes').get();
-    final fil = snapshot.docs.map((e) => e['filiere'] as String).toSet().toList();
+    final classes = await ApiService.fetchClasses();
+    final fil = classes.map((c) => c['filiere'] as String?).whereType<String>().toSet().toList();
     setState(() {
       _filieres = fil;
       if (fil.isNotEmpty) _filiere = fil.first;
@@ -36,14 +34,12 @@ class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
 
   Future<void> _chargerEmplois() async {
     if (_filiere == null) return;
-    final classesSnapshot = await FirebaseFirestore.instance
-        .collection('classes')
-        .where('filiere', isEqualTo: _filiere)
-        .get();
+    final classes = await ApiService.fetchClasses();
+    final filtered = classes.where((c) => c['filiere'] == _filiere).toList();
     Map<String, Map<String, Map<String, String>>> data = {};
-    for (final classe in classesSnapshot.docs) {
-      final emplois = await _generator.getEmploisParClasse(classe.id);
-      data[classe['nom']] = emplois;
+    for (final c in filtered) {
+      final emplois = await ApiService.fetchEmploiParClasse(c['id'].toString());
+      data[c['nom']] = emplois;
     }
     setState(() {
       _emploiParClasse = data;
