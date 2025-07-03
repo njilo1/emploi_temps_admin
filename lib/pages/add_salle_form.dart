@@ -12,37 +12,23 @@ class _AddSalleFormState extends State<AddSalleForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _capaciteController = TextEditingController();
-  bool _isDisponible = true; // Valeur par défaut : disponible
+  bool _disponible = true;
 
-
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _capaciteController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitForm() async {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final data = {
         'nom': _nomController.text.trim(),
         'capacite': int.tryParse(_capaciteController.text.trim()) ?? 0,
-        'disponible': _isDisponible,
+        'disponible': _disponible,
       };
 
       try {
         await ApiService.addSalle(data);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Salle ajoutée avec succès')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Salle ajoutée")));
         _formKey.currentState!.reset();
-        setState(() {
-          _isDisponible = true;
-        });
+        setState(() => _disponible = true);
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
       }
     }
   }
@@ -57,44 +43,37 @@ class _AddSalleFormState extends State<AddSalleForm> {
           key: _formKey,
           child: Column(
             children: [
-              const Text(
-                'Ajouter une Salle',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("Ajouter une salle", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nomController,
-                decoration: const InputDecoration(labelText: 'Nom de la salle'),
-                validator: (value) =>
-                value == null || value.isEmpty ? 'Nom requis' : null,
+                decoration: const InputDecoration(labelText: "Nom de la salle"),
+                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _capaciteController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Capacité'),
-                validator: (value) =>
-                value == null || value.isEmpty ? 'Capacité requise' : null,
+                decoration: const InputDecoration(labelText: "Capacité"),
+                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
               ),
-              const SizedBox(height: 16),
               SwitchListTile(
-                title: const Text('Salle disponible'),
-                value: _isDisponible,
-                onChanged: (value) {
-                  setState(() {
-                    _isDisponible = value;
-                  });
-                },
+                value: _disponible,
+                title: const Text("Salle disponible"),
+                onChanged: (v) => setState(() => _disponible = v),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Ajouter'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _capaciteController.dispose();
+    super.dispose();
   }
 }

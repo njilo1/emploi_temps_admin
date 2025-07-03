@@ -1,10 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/api_service.dart';
-
 import '../services/pdf_exporter.dart';
 import '../widgets/emploi_table.dart';
 
@@ -35,9 +36,9 @@ class _EmploiPageState extends State<EmploiPage> {
     setState(() {
       _classes = data
           .map((c) => {
-                'id': c['id'].toString(),
-                'nom': c['nom'] ?? 'Sans nom',
-              })
+        'id': c['id'].toString(),
+        'nom': c['nom'] ?? 'Sans nom',
+      })
           .toList();
       if (_classes.isNotEmpty) {
         _selectedClassId = _classes.first['id'];
@@ -72,6 +73,35 @@ class _EmploiPageState extends State<EmploiPage> {
     }
   }
 
+  Future<void> _importerEmploiDepuisJson() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+    });
+
+    try {
+      final String jsonContent = await rootBundle.loadString('assets/emploi_test.json');
+      final Map<String, dynamic> data = json.decode(jsonContent);
+      await ApiService.importEmplois(data);
+
+      if (_selectedClassId != null) {
+        final result = await ApiService.fetchEmploiParClasse(_selectedClassId!);
+        setState(() {
+          emplois = result;
+          _message = "✅ Emploi importé avec succès depuis JSON !";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _message = "❌ Import échoué : $e";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _exportPdf() async {
     if (_selectedClassId == null) return;
 
@@ -79,7 +109,6 @@ class _EmploiPageState extends State<EmploiPage> {
       Directory? saveDir;
 
       if (Platform.isAndroid) {
-        // 🔐 Permission requise uniquement sur Android
         final status = await Permission.storage.request();
         if (!status.isGranted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -89,7 +118,6 @@ class _EmploiPageState extends State<EmploiPage> {
         }
         saveDir = await getExternalStorageDirectory();
       } else {
-        // Sur desktop et iOS, on utilise le dossier "Téléchargements" s'il est disponible
         saveDir = await getDownloadsDirectory();
         saveDir ??= await getApplicationDocumentsDirectory();
       }
@@ -131,7 +159,7 @@ class _EmploiPageState extends State<EmploiPage> {
             const Icon(Icons.schedule, size: 80, color: Colors.teal),
             const SizedBox(height: 10),
             const Text(
-              "Sélectionne une classe et génère automatiquement son emploi du temps.",
+              "Sélectionne une classe et génère ou importe son emploi du temps.",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16),
             ),
@@ -182,16 +210,32 @@ class _EmploiPageState extends State<EmploiPage> {
             const SizedBox(height: 12),
             _isLoading
                 ? const CircularProgressIndicator()
-                : ElevatedButton.icon(
-              onPressed: _genererEmploi,
-              icon: const Icon(Icons.refresh),
-              label: const Text("Générer l'emploi du temps"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                textStyle: const TextStyle(fontSize: 16),
-              ),
+                : Column(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _genererEmploi,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Générer automatiquement"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _importerEmploiDepuisJson,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text("Importer depuis JSON"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             if (_message != null)

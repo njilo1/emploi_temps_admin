@@ -13,30 +13,19 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
   final _nomController = TextEditingController();
   final _dispoController = TextEditingController();
 
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _dispoController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitForm() async {
+  Future<void> _submit() async {
     if (_formKey.currentState!.validate()) {
       final data = {
         'nom': _nomController.text.trim(),
-        'disponibilites': _dispoController.text.trim(), // Exemple : "Lun-Mer-Ven matin"
+        'disponibilites': _dispoController.text.trim(),
       };
 
       try {
         await ApiService.addProfesseur(data);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Professeur ajouté avec succès')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Professeur ajouté")));
         _formKey.currentState!.reset();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
       }
     }
   }
@@ -51,34 +40,32 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
           key: _formKey,
           child: Column(
             children: [
-              const Text(
-                'Ajouter un Professeur',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("Ajouter un professeur", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nomController,
-                decoration: const InputDecoration(labelText: 'Nom'),
-                validator: (value) =>
-                value == null || value.isEmpty ? 'Nom requis' : null,
+                decoration: const InputDecoration(labelText: "Nom"),
+                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _dispoController,
-                decoration: const InputDecoration(
-                    labelText: 'Disponibilités (ex: Lun-Mer matin)'),
-                validator: (value) =>
-                value == null || value.isEmpty ? 'Disponibilités requises' : null,
+                decoration: const InputDecoration(labelText: "Disponibilités"),
+                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Ajouter'),
-              ),
+              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _dispoController.dispose();
+    super.dispose();
   }
 }

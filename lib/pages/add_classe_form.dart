@@ -12,8 +12,22 @@ class _AddClasseFormState extends State<AddClasseForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _effectifController = TextEditingController();
-  String? _selectedFiliere;
+  int? _selectedFiliereId;
 
+  List<dynamic> _filieres = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFilieres();
+  }
+
+  Future<void> _loadFilieres() async {
+    final filieres = await ApiService.fetchFilieres();
+    setState(() {
+      _filieres = filieres;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,52 +70,41 @@ class _AddClasseFormState extends State<AddClasseForm> {
               ),
               const SizedBox(height: 15),
 
-              // Liste des filières (dropdown)
-              FutureBuilder<List<dynamic>>(
-                future: ApiService.fetchFilieres(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-
-                  final filieres = snapshot.data!;
-
-                  return DropdownButtonFormField<String>(
-                    value: _selectedFiliere,
-                    items: filieres.map((f) {
-                      final filiereName = f['nom'] ?? 'Inconnu';
-                      return DropdownMenuItem<String>(
-                        value: filiereName,
-                        child: Text(filiereName),
-                      );
-                    }).toList(),
-                    
-                    decoration: const InputDecoration(
-                      labelText: 'Filière',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedFiliere = value;
-                      });
-                    },
-                    validator: (value) =>
-                    value == null ? 'Veuillez choisir une filière' : null,
+              // Liste des filières
+              DropdownButtonFormField<int>(
+                value: _selectedFiliereId,
+                items: _filieres.map((filiere) {
+                  return DropdownMenuItem<int>(
+                    value: filiere['id'],
+                    child: Text(filiere['nom']),
                   );
+                }).toList(),
+                decoration: const InputDecoration(
+                  labelText: 'Filière',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedFiliereId = value;
+                  });
                 },
+                validator: (value) =>
+                value == null ? 'Veuillez choisir une filière' : null,
               ),
 
               const SizedBox(height: 20),
 
-              // Bouton enregistrer
+              // Bouton Enregistrer
               ElevatedButton(
                 onPressed: () async {
                   if (_formKey.currentState!.validate()) {
-                    await ApiService.addClasse({
+                    final data = {
                       'nom': _nomController.text.trim(),
-                      'filiere': _selectedFiliere,
                       'effectif': int.parse(_effectifController.text.trim()),
-                    });
+                      'filiere': _selectedFiliereId,
+                    };
+
+                    await ApiService.addClasse(data);
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Classe enregistrée avec succès')),
@@ -110,12 +113,12 @@ class _AddClasseFormState extends State<AddClasseForm> {
                     _nomController.clear();
                     _effectifController.clear();
                     setState(() {
-                      _selectedFiliere = null;
+                      _selectedFiliereId = null;
                     });
                   }
                 },
                 child: const Text('Enregistrer'),
-              )
+              ),
             ],
           ),
         ),

@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
 class EntityListPage extends StatefulWidget {
-  final String collectionName;
+  final String endpoint;
   final List<String> fieldsToShow;
 
   const EntityListPage({
     Key? key,
-    required this.collectionName,
+    required this.endpoint,
     required this.fieldsToShow,
   }) : super(key: key);
 
@@ -16,115 +16,85 @@ class EntityListPage extends StatefulWidget {
 }
 
 class _EntityListPageState extends State<EntityListPage> {
+  List<Map<String, dynamic>> _items = [];
+  bool _isLoading = true;
 
-  /// Fonction de suppression d'un document
-  Future<void> _deleteEntity(String docId) async {
-    switch (widget.collectionName) {
-      case 'classes':
-        await ApiService.deleteClasse(docId);
-        break;
-      case 'filieres':
-        await ApiService.deleteFiliere(docId);
-        break;
-      case 'professeurs':
-        await ApiService.deleteProfesseur(docId);
-        break;
-      case 'salles':
-        await ApiService.deleteSalle(docId);
-        break;
-      case 'modules':
-        await ApiService.deleteModule(docId);
-        break;
-      default:
-        break;
-    }
-    setState(() {});
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
   }
 
-  Future<List<dynamic>> _fetchEntities() {
-    switch (widget.collectionName) {
-      case 'classes':
-        return ApiService.fetchClasses();
-      case 'filieres':
-        return ApiService.fetchFilieres();
-      case 'professeurs':
-        return ApiService.fetchProfesseurs();
-      case 'salles':
-        return ApiService.fetchSalles();
-      case 'modules':
-        return ApiService.fetchModules();
-      default:
-        return Future.value([]);
+  Future<void> _loadData() async {
+    try {
+      final data = await ApiService.getData(widget.endpoint);
+      setState(() {
+        _items = List<Map<String, dynamic>>.from(data);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _items = [];
+        _isLoading = false;
+      });
     }
+  }
+
+  Future<void> _deleteEntity(int id) async {
+    await ApiService.deleteData('${widget.endpoint}$id/');
+    _loadData();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Liste : ${widget.collectionName}'),
-      ),
-      body: FutureBuilder<List<dynamic>>( 
-        future: _fetchEntities(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('Erreur de chargement'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      appBar: AppBar(title: Text('Liste : ${widget.endpoint}')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
+          ? const Center(child: Text('Aucun élément trouvé'))
+          : ListView.builder(
+        itemCount: _items.length,
+        itemBuilder: (context, index) {
+          final item = _items[index];
+          final title = widget.fieldsToShow
+              .map((field) => item[field]?.toString() ?? '')
+              .join(' - ');
 
-          final docs = snapshot.data!;
-
-          if (docs.isEmpty) {
-            return const Center(child: Text("Aucun élément trouvé"));
-          }
-
-          return ListView.builder(
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final data = docs[index] as Map<String, dynamic>;
-              final docId = data['id']?.toString() ?? '';
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: ListTile(
-                  title: Text(
-                    fieldsToShow.map((f) => data[f]?.toString() ?? '').join(' - '),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text("Confirmation"),
-                          content: const Text("Supprimer cet élément ?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text("Annuler"),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, true),
-                              child: const Text("Supprimer"),
-                            ),
-                          ],
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ListTile(
+              title: Text(title),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Confirmation'),
+                      content: const Text('Supprimer cet élément ?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Annuler'),
                         ),
-                      );
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Supprimer'),
+                        ),
+                      ],
+                    ),
+                  );
 
-                      if (confirm == true) {
-                        await _deleteEntity(docId);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Élément supprimé')),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              );
-            },
+                  if (confirm == true) {
+                    await _deleteEntity(item['id']);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Élément supprimé')),
+                    );
+                  }
+                },
+              ),
+            ),
           );
         },
       ),

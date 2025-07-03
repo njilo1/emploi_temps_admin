@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
-/// Page permettant d'ajouter ou de modifier un module (cours)
 class AddModulePage extends StatefulWidget {
-  final String? moduleId;
+  final int? moduleId;
   const AddModulePage({Key? key, this.moduleId}) : super(key: key);
 
   @override
@@ -13,184 +12,93 @@ class AddModulePage extends StatefulWidget {
 class _AddModulePageState extends State<AddModulePage> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
-  String? _selectedTranche;
-  String? _selectedJour;
-  String? _selectedClasseId;
-  String? _selectedSalleId;
-  String? _selectedProfId;
 
-  final _horaires = const [
-    '07H30 - 10H15',
-    '10H30 - 13H15',
-    '13H15 - 14H00',
-    '14H00 - 16H45',
-    '17H00 - 19H45',
+  String? _selectedTranche, _selectedJour, _selectedClasse, _selectedSalle, _selectedProf;
+
+  final _horaires = [
+    '07H30 - 10H10',
+    '10H15 - 12H45',
+    '13H00 - 15H30',
+    '15H45 - 18H15',
   ];
 
-  final _jours = const [
-    'Lundi',
-    'Mardi',
-    'Mercredi',
-    'Jeudi',
-    'Vendredi',
-    'Samedi',
-  ];
+  final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+
+  List<dynamic> classes = [], salles = [], profs = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.moduleId != null) {
-      _loadModule();
+    loadData();
+  }
+
+  Future<void> loadData() async {
+    try {
+      final results = await Future.wait([
+        ApiService.fetchClasses(),
+        ApiService.fetchSalles(),
+        ApiService.fetchProfesseurs(),
+      ]);
+      setState(() {
+        classes = results[0];
+        salles = results[1];
+        profs = results[2];
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de chargement: $e')));
     }
   }
 
-  Future<void> _loadModule() async {
-    final data = await ApiService.fetchModule(widget.moduleId!);
-    _nomController.text = data['nom'] ?? '';
-    _selectedTranche = data['heure'];
-    _selectedJour = data['jour'];
-    _selectedClasseId = data['classe'];
-    _selectedSalleId = data['salle'];
-    _selectedProfId = data['prof'];
-    setState(() {});
-  }
+  Future<void> saveModule() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  Future<void> _saveModule() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        'nom': _nomController.text.trim(),
-        'heure': _selectedTranche,
-        'jour': _selectedJour,
-        'classe': _selectedClasseId,
-        'salle': _selectedSalleId,
-        'prof': _selectedProfId,
-      };
-      try {
-        if (widget.moduleId == null) {
-          await ApiService.addModule(data);
-        } else {
-          await ApiService.updateModule(widget.moduleId!, data);
-        }
-        if (mounted) Navigator.pop(context);
-      } catch (e) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
+    setState(() => _isLoading = true);
+
+    final data = {
+      'nom': _nomController.text.trim(),
+      'heure': _selectedTranche,
+      'jour': _selectedJour,
+      'classe': int.parse(_selectedClasse!),
+      'salle': int.parse(_selectedSalle!),
+      'prof': int.parse(_selectedProf!),
+    };
+
+    try {
+      if (widget.moduleId == null) {
+        await ApiService.addModule(data);
+      } else {
+        await ApiService.updateModule(widget.moduleId!.toString(), data);
+
       }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("✅ Module enregistré avec succès")),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("❌ Erreur: $e")),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.moduleId == null
-            ? 'Ajouter un module'
-            : 'Modifier le module'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nomController,
-                decoration: const InputDecoration(labelText: 'Nom du module'),
-                validator: (v) => v == null || v.isEmpty ? 'Nom requis' : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedTranche,
-                decoration: const InputDecoration(labelText: 'Tranche horaire'),
-                items: _horaires
-                    .map((h) => DropdownMenuItem(value: h, child: Text(h)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedTranche = v),
-                validator: (v) => v == null ? 'Choisir une tranche' : null,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedJour,
-                decoration: const InputDecoration(labelText: 'Jour'),
-                items: _jours
-                    .map((j) => DropdownMenuItem(value: j, child: Text(j)))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedJour = v),
-                validator: (v) => v == null ? 'Choisir un jour' : null,
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<dynamic>>(
-                future: ApiService.fetchClasses(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final classes = snapshot.data!;
-                  return DropdownButtonFormField<String>(
-                    value: _selectedClasseId,
-                    decoration: const InputDecoration(labelText: 'Classe'),
-                    items: classes
-                        .map((c) => DropdownMenuItem(
-                            value: c['id']?.toString() ?? '',
-                            child: Text(c['nom'] ?? '')))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedClasseId = v),
-                    validator: (v) => v == null ? 'Choisir une classe' : null,
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<dynamic>>(
-                future: ApiService.fetchSalles(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final salles = snapshot.data!;
-                  return DropdownButtonFormField<String>(
-                    value: _selectedSalleId,
-                    decoration: const InputDecoration(labelText: 'Salle'),
-                    items: salles
-                        .map((s) => DropdownMenuItem(
-                            value: s['id']?.toString() ?? '',
-                            child: Text(s['nom'] ?? '')))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedSalleId = v),
-                    validator: (v) => v == null ? 'Choisir une salle' : null,
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              FutureBuilder<List<dynamic>>(
-                future: ApiService.fetchProfesseurs(),
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-                  final profs = snapshot.data!;
-                  return DropdownButtonFormField<String>(
-                    value: _selectedProfId,
-                    decoration: const InputDecoration(labelText: 'Professeur'),
-                    items: profs
-                        .map((p) => DropdownMenuItem(
-                              value: p['id']?.toString() ?? '',
-                              child: Text(p['nom'] ?? ''),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedProfId = v),
-                    validator: (v) => v == null ? 'Choisir un professeur' : null,
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: _saveModule,
-                child: const Text('Enregistrer'),
-              )
-            ],
-          ),
-        ),
-      ),
+  Widget buildDropdown(List<dynamic> items, String? selected, String label, void Function(String?) onChanged) {
+    return DropdownButtonFormField<String>(
+      value: selected,
+      items: items.map((item) {
+        final nom = item['nom'] ?? item['code'] ?? 'Inconnu';
+        return DropdownMenuItem(value: item['id'].toString(), child: Text(nom));
+      }).toList(),
+      decoration: InputDecoration(labelText: label.capitalize()),
+      onChanged: onChanged,
+      validator: (v) => v == null ? "Champ requis" : null,
     );
   }
 
@@ -199,4 +107,63 @@ class _AddModulePageState extends State<AddModulePage> {
     _nomController.dispose();
     super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.moduleId == null ? "Ajouter un module" : "Modifier le module"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              TextFormField(
+                controller: _nomController,
+                decoration: const InputDecoration(labelText: "Nom du module"),
+                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedTranche,
+                items: _horaires.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                decoration: const InputDecoration(labelText: "Tranche horaire"),
+                onChanged: (v) => setState(() => _selectedTranche = v),
+                validator: (v) => v == null ? "Champ requis" : null,
+              ),
+              DropdownButtonFormField<String>(
+                value: _selectedJour,
+                items: _jours.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                decoration: const InputDecoration(labelText: "Jour"),
+                onChanged: (v) => setState(() => _selectedJour = v),
+                validator: (v) => v == null ? "Champ requis" : null,
+              ),
+              const SizedBox(height: 16),
+              buildDropdown(classes, _selectedClasse, "Classe", (v) => setState(() => _selectedClasse = v)),
+              buildDropdown(salles, _selectedSalle, "Salle", (v) => setState(() => _selectedSalle = v)),
+              buildDropdown(profs, _selectedProf, "Professeur", (v) => setState(() => _selectedProf = v)),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: saveModule,
+                icon: const Icon(Icons.save),
+                label: const Text("Enregistrer"),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+extension on String {
+  String capitalize() => "${this[0].toUpperCase()}${substring(1)}";
 }

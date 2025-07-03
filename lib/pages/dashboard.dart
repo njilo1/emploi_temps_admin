@@ -50,7 +50,7 @@ class DashboardPage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => EmploiPage()), // ✅ const supprimé ici
+                  MaterialPageRoute(builder: (_) => EmploiPage()),
                 );
               },
               icon: const Icon(Icons.calendar_today),
@@ -60,7 +60,7 @@ class DashboardPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 textStyle: const TextStyle(fontSize: 16),
               ),
-              ),
+            ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: () async {
@@ -107,7 +107,7 @@ class AppDrawer extends StatelessWidget {
       leading: Icon(icon),
       title: Text(title),
       onTap: () {
-        Navigator.of(context).pop(); // Ferme le menu
+        Navigator.of(context).pop();
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => pageBuilder()));
       },
     );
@@ -134,42 +134,43 @@ class AppDrawer extends StatelessWidget {
                   () => const AddEntityPage(collectionName: 'classes')),
           drawerItem(context, "Voir Classes", Icons.list,
                   () => const EntityListPage(
-                collectionName: 'classes',
+                endpoint: 'classes/',
                 fieldsToShow: ['nom', 'filiere', 'effectif'],
               )),
           drawerItem(context, "Ajouter Professeur", Icons.person_add,
                   () => const AddEntityPage(collectionName: 'professeurs')),
           drawerItem(context, "Voir Professeurs", Icons.people,
-                  () => const EntityListPage(collectionName: 'professeurs', fieldsToShow: ['nom'])),
+                  () => const EntityListPage(
+                endpoint: 'professeurs/',
+                fieldsToShow: ['nom'],
+              )),
           drawerItem(context, "Ajouter Salle", Icons.meeting_room,
                   () => const AddEntityPage(collectionName: 'salles')),
           drawerItem(context, "Voir Salles", Icons.domain,
                   () => const EntityListPage(
-                collectionName: 'salles',
+                endpoint: 'salles/',
                 fieldsToShow: ['nom', 'capacité', 'disponible'],
               )),
           drawerItem(context, "Ajouter Filière", Icons.school,
                   () => const AddFilierePage()),
           drawerItem(context, "Voir Filières", Icons.view_list,
                   () => const EntityListPage(
-                collectionName: 'filieres',
+                endpoint: 'filieres/',
                 fieldsToShow: ['nom', 'departement'],
               )),
           drawerItem(context, "Ajouter Département", Icons.apartment,
                   () => const AddDepartementPage()),
           drawerItem(context, "Voir Départements", Icons.apartment,
                   () => const EntityListPage(
-                collectionName: 'departements',
+                endpoint: 'departements/',
                 fieldsToShow: ['nom', 'code'],
               )),
           drawerItem(context, "Ajouter Module", Icons.book,
                   () => const AddModulePage()),
           drawerItem(context, "Voir Modules", Icons.book_outlined,
                   () => const ModuleListPage()),
-
-          // ✅ Lien vers l’emploi du temps
           drawerItem(context, "Générer Emploi du Temps", Icons.event_available,
-                  () => EmploiPage()), // ✅ const supprimé ici aussi
+                  () => EmploiPage()),
           drawerItem(context, "Importer Planning", Icons.upload_file,
                   () => const PlanningImportPage()),
           drawerItem(context, "Emploi global", Icons.table_rows,

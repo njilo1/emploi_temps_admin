@@ -87,7 +87,8 @@ class _ModuleListPageState extends State<ModuleListPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => AddModulePage(moduleId: docId),
+                                  builder: (_) => AddModulePage(moduleId: int.parse(docId)),
+
                                 ),
                               );
                             },
