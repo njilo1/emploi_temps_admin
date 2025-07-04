@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'add_module_page.dart';
 
-/// Page listant l'ensemble des modules enregistrés dans Firestore
 class ModuleListPage extends StatefulWidget {
   const ModuleListPage({Key? key}) : super(key: key);
 
@@ -11,16 +10,22 @@ class ModuleListPage extends StatefulWidget {
 }
 
 class _ModuleListPageState extends State<ModuleListPage> {
+  // 🔁 Recharge automatique après ajout/modif
+  Future<void> _refresh() async => setState(() {});
+
+  // 🔁 Obtenir le nom d’un élément depuis son ID
   Future<String> _getDocName(String collection, String id) async {
+    if (id.isEmpty) return '';
     switch (collection) {
       case 'classes':
         final classes = await ApiService.fetchClasses();
-        return classes.firstWhere((c) => c['id'].toString() == id,
-            orElse: () => {})['nom'] ?? '';
+        return classes.firstWhere((c) => c['id'].toString() == id, orElse: () => {})['nom'] ?? '';
       case 'salles':
         final salles = await ApiService.fetchSalles();
-        return salles.firstWhere((s) => s['id'].toString() == id,
-            orElse: () => {})['nom'] ?? '';
+        return salles.firstWhere((s) => s['id'].toString() == id, orElse: () => {})['nom'] ?? '';
+      case 'professeurs':
+        final profs = await ApiService.fetchProfesseurs();
+        return profs.firstWhere((p) => p['id'].toString() == id, orElse: () => {})['nom'] ?? '';
       default:
         return '';
     }
@@ -28,7 +33,7 @@ class _ModuleListPageState extends State<ModuleListPage> {
 
   Future<void> _delete(String id) async {
     await ApiService.deleteModule(id);
-    setState(() {});
+    await _refresh();
   }
 
   @override
@@ -36,61 +41,60 @@ class _ModuleListPageState extends State<ModuleListPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Liste des modules')),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const AddModulePage()),
-        ),
+        onPressed: () async {
+          await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddModulePage()));
+          await _refresh(); // 🔁 refresh après ajout
+        },
         child: const Icon(Icons.add),
       ),
       body: FutureBuilder<List<dynamic>>(
         future: ApiService.fetchModules(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(child: Text('Erreur de chargement'));
-          }
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+          if (snapshot.hasError) return const Center(child: Text('Erreur de chargement'));
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+
           final docs = snapshot.data!;
-          if (docs.isEmpty) {
-            return const Center(child: Text('Aucun module'));
-          }
+          if (docs.isEmpty) return const Center(child: Text('Aucun module'));
+
           return ListView.builder(
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final data = docs[index] as Map<String, dynamic>;
+              final data = docs[index];
               final docId = data['id']?.toString() ?? '';
-              return FutureBuilder<List<String>>( 
+
+              return FutureBuilder<List<String>>(
                 future: Future.wait([
-                  _getDocName('classes', data['classe'] ?? ''),
-                  _getDocName('salles', data['salle'] ?? ''),
+                  _getDocName('classes', data['classe'].toString()),
+                  _getDocName('salles', data['salle'].toString()),
+                  _getDocName('professeurs', data['prof'].toString()),
                 ]),
                 builder: (context, snapshotNames) {
-                  final classeNom =
-                      snapshotNames.data != null ? snapshotNames.data![0] : '';
-                  final salleNom =
-                      snapshotNames.data != null ? snapshotNames.data![1] : '';
+                  if (!snapshotNames.hasData) return const SizedBox();
+                  final classeNom = snapshotNames.data![0];
+                  final salleNom = snapshotNames.data![1];
+                  final profNom = snapshotNames.data![2];
+
                   return Card(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: ListTile(
                       title: Text(data['nom'] ?? ''),
                       subtitle: Text(
-                          '${data['jour']} - ${data['heure']}\nClasse: $classeNom - Salle: $salleNom\nProf: ${data['prof']}'),
+                        '${data['jour']} - ${data['heure']}\nClasse: $classeNom - Salle: $salleNom\nProf: $profNom',
+                      ),
                       isThreeLine: true,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
                             icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              Navigator.push(
+                            onPressed: () async {
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => AddModulePage(moduleId: int.parse(docId)),
-
                                 ),
                               );
+                              await _refresh(); // 🔁 refresh après édition
                             },
                           ),
                           IconButton(

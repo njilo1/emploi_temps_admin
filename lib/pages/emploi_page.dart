@@ -82,7 +82,9 @@ class _EmploiPageState extends State<EmploiPage> {
     try {
       final String jsonContent = await rootBundle.loadString('assets/emploi_test.json');
       final Map<String, dynamic> data = json.decode(jsonContent);
-      await ApiService.importEmplois(data);
+
+      // 🔁 Remplacement de la ligne problématique
+      await ApiService.post('/emplois/import/', data);
 
       if (_selectedClassId != null) {
         final result = await ApiService.fetchEmploiParClasse(_selectedClassId!);

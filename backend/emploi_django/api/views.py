@@ -1,7 +1,6 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .serializers import DepartementSerializer
 from .models import Classe, Filiere, Salle, Module, Professeur, Emploi, Departement
 from .serializers import (
     ClasseSerializer, FiliereSerializer, SalleSerializer,
@@ -96,6 +95,8 @@ def generer_emplois(request):
 
         return Response({"message": "Emplois générés avec succès"}, status=status.HTTP_200_OK)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # ======== Route GET /emplois/classe/<id>/ ========
@@ -118,6 +119,10 @@ def emploi_par_classe(request, classe_id):
         return Response(data)
     except Classe.DoesNotExist:
         return Response({"error": "Classe introuvable"}, status=404)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
 
 # ======== Route POST /emplois/import/ ========
 @api_view(['POST'])
@@ -138,19 +143,22 @@ def import_emplois(request):
             jour = item.get('jour')
             heure = item.get('heure')
 
-            # 🔹 Création automatique ou récupération des objets
+            # 🔍 Vérification obligatoire
+            if not (classe_nom and module_nom and prof_nom and salle_nom and jour and heure):
+                return Response({"error": f"Donnée incomplète : {item}"}, status=400)
+
+            # 🔹 Création ou récupération des entités
             classe, _ = Classe.objects.get_or_create(nom=classe_nom, defaults={"effectif": 30})
             prof, _ = Professeur.objects.get_or_create(nom=prof_nom)
             salle, _ = Salle.objects.get_or_create(nom=salle_nom, defaults={"capacite": 30, "disponible": True})
             module, _ = Module.objects.get_or_create(nom=module_nom, defaults={"classe": classe, "prof": prof})
 
-            # 🔸 Mise à jour des relations dans le module si nécessaires
+            # 🔄 Met à jour les relations dans le module si elles sont différentes
             if module.classe != classe or module.prof != prof:
                 module.classe = classe
                 module.prof = prof
                 module.save()
 
-            # 🔹 Création de l'emploi du temps
             Emploi.objects.create(
                 classe=classe,
                 module=module,
@@ -161,5 +169,8 @@ def import_emplois(request):
             )
 
         return Response({"message": "Importation réussie"}, status=200)
+
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)

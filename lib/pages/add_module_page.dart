@@ -30,7 +30,7 @@ class _AddModulePageState extends State<AddModulePage> {
   @override
   void initState() {
     super.initState();
-    loadData();
+    loadData().then((_) => loadExistingData());
   }
 
   Future<void> loadData() async {
@@ -47,6 +47,21 @@ class _AddModulePageState extends State<AddModulePage> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de chargement: $e')));
+    }
+  }
+
+  Future<void> loadExistingData() async {
+    if (widget.moduleId != null) {
+      final modules = await ApiService.fetchModules();
+      final module = modules.firstWhere((m) => m['id'] == widget.moduleId, orElse: () => null);
+      if (module != null) {
+        _nomController.text = module['nom'] ?? '';
+        _selectedTranche = module['heure'];
+        _selectedJour = module['jour'];
+        _selectedClasse = module['classe'].toString();
+        _selectedSalle = module['salle'].toString();
+        _selectedProf = module['prof'].toString();
+      }
     }
   }
 
@@ -69,7 +84,6 @@ class _AddModulePageState extends State<AddModulePage> {
         await ApiService.addModule(data);
       } else {
         await ApiService.updateModule(widget.moduleId!.toString(), data);
-
       }
 
       if (mounted) {
@@ -113,10 +127,7 @@ class _AddModulePageState extends State<AddModulePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.moduleId == null ? "Ajouter un module" : "Modifier le module"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const BackButton(),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
