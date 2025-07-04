@@ -43,12 +43,12 @@ def generer_emplois(request):
         tranches_horaires = [
             '07H30 - 10H00',
             '10H15 - 12H45',
-            '13H00 - 15H30',  # Pause
+            '13H00 - 15H30',
             '15H45 - 18H15',
         ]
         jours_semaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 
-        Emploi.objects.all().delete()  # Réinitialiser les emplois
+        Emploi.objects.all().delete()
 
         classes = Classe.objects.all()
         salles = Salle.objects.filter(disponible=True)
@@ -67,8 +67,8 @@ def generer_emplois(request):
                 for jour in jours_semaine:
                     for heure in tranches_horaires:
                         cle = f"{jour}-{heure}"
-
                         salle_id = None
+
                         for salle in salles:
                             if salle.capacite >= classe.effectif and cle not in salle_occupe.get(salle.id, set()):
                                 salle_id = salle.id
@@ -93,11 +93,11 @@ def generer_emplois(request):
                     if heures_restantes <= 0:
                         break
 
-        return Response({"message": "Emplois générés avec succès"}, status=status.HTTP_200_OK)
+        return Response({"message": "Emplois générés avec succès"}, status=200)
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"error": str(e)}, status=500)
 
 # ======== Route GET /emplois/classe/<id>/ ========
 @api_view(['GET'])
@@ -129,11 +129,10 @@ def emploi_par_classe(request, classe_id):
 def import_emplois(request):
     try:
         data = request.data.get('emplois', [])
-
         if not data:
             return Response({"error": "Aucune donnée à importer"}, status=400)
 
-        Emploi.objects.all().delete()  # Réinitialise les emplois
+        Emploi.objects.all().delete()
 
         for item in data:
             classe_nom = item.get('classe')
@@ -143,17 +142,14 @@ def import_emplois(request):
             jour = item.get('jour')
             heure = item.get('heure')
 
-            # 🔍 Vérification obligatoire
             if not (classe_nom and module_nom and prof_nom and salle_nom and jour and heure):
                 return Response({"error": f"Donnée incomplète : {item}"}, status=400)
 
-            # 🔹 Création ou récupération des entités
             classe, _ = Classe.objects.get_or_create(nom=classe_nom, defaults={"effectif": 30})
             prof, _ = Professeur.objects.get_or_create(nom=prof_nom)
             salle, _ = Salle.objects.get_or_create(nom=salle_nom, defaults={"capacite": 30, "disponible": True})
             module, _ = Module.objects.get_or_create(nom=module_nom, defaults={"classe": classe, "prof": prof})
 
-            # 🔄 Met à jour les relations dans le module si elles sont différentes
             if module.classe != classe or module.prof != prof:
                 module.classe = classe
                 module.prof = prof

@@ -1,9 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from .views import import_emplois
 from .views import (
     ClasseViewSet, FiliereViewSet, DepartementViewSet, SalleViewSet,
     ModuleViewSet, ProfesseurViewSet, EmploiViewSet,
-    generer_emplois, emploi_par_classe, import_emplois
+    generer_emplois, emploi_par_classe,
 )
 
 # Initialisation du routeur pour les ViewSets
