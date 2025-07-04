@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
+import 'api_service.dart';
 
 const String baseUrl = "http://127.0.0.1:8000/api"; // Remplace par ton IP en production
 
@@ -71,54 +72,10 @@ class EmploiGenerator {
     final emplois = data['emplois'] as List<dynamic>?;
     if (emplois == null) return;
 
-    // 🔁 Obtenir les correspondances nom → ID
-    final classMap = await _fetchIdMap('classes');
-    final moduleMap = await _fetchIdMap('modules');
-    final profMap = await _fetchIdMap('professeurs');
-    final salleMap = await _fetchIdMap('salles');
-
-    for (final e in emplois) {
-      final payload = {
-        'classe': classMap[e['classe']] ?? e['classe'],
-        'jour': e['jour'],
-        'heure': e['heure'],
-        'module': moduleMap[e['module']] ?? e['module'],
-        'prof': profMap[e['prof']] ?? e['prof'],
-        'salle': salleMap[e['salle']] ?? e['salle'],
-      };
-
-      print('Payload envoyé : $payload'); // Debug
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/emplois/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
-
-      if (response.statusCode != 201) {
-        print('Erreur import : ${response.body}');
-      }
-    }
+    // Utilise ApiService pour gérer la conversion noms → IDs et l'envoi
+    await ApiService.post('/emplois/import/', {'emplois': emplois});
   }
 
-  /// Mappe les noms (ou libellés) vers leur ID à partir de l’API
-  Future<Map<String, int>> _fetchIdMap(String endpoint) async {
-    final response = await http.get(Uri.parse('$baseUrl/$endpoint/'));
-
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      final Map<String, int> map = {};
-
-      for (final item in data) {
-        final name = item['nom'] ?? item['libelle'] ?? item['label'];
-        if (name != null) {
-          map[name] = item['id'];
-        }
-      }
-
-      return map;
-    } else {
-      throw Exception('Impossible de charger les données de $endpoint');
-    }
-  }
+  // Ancien utilitaire de conversion noms → IDs conservé pour référence
+  // mais plus utilisé depuis l’intégration d'ApiService.post
 }
