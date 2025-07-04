@@ -66,38 +66,26 @@ class EmploiGenerator {
     await importerDepuisJson(data);
   }
 
-  /// Envoie les emplois du JSON à l’API Django avec noms convertis en IDs
+  /// Envoie les emplois du JSON à l’API Django.
+  ///
+  /// Cette implémentation utilise maintenant l’endpoint
+  /// `/emplois/import/` qui accepte directement les noms de
+  /// classe, module, prof et salle. Il s’occupe de créer ou
+  /// de récupérer les entités côté backend, ce qui évite
+  /// l’erreur "Type incorrect" rencontrée lors de l’envoi de
+  /// chaînes au lieu des identifiants numériques.
   Future<void> importerDepuisJson(Map<String, dynamic> data) async {
     final emplois = data['emplois'] as List<dynamic>?;
     if (emplois == null) return;
 
-    // 🔁 Obtenir les correspondances nom → ID
-    final classMap = await _fetchIdMap('classes');
-    final moduleMap = await _fetchIdMap('modules');
-    final profMap = await _fetchIdMap('professeurs');
-    final salleMap = await _fetchIdMap('salles');
+    final response = await http.post(
+      Uri.parse('$baseUrl/emplois/import/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'emplois': emplois}),
+    );
 
-    for (final e in emplois) {
-      final payload = {
-        'classe': classMap[e['classe']] ?? e['classe'],
-        'jour': e['jour'],
-        'heure': e['heure'],
-        'module': moduleMap[e['module']] ?? e['module'],
-        'prof': profMap[e['prof']] ?? e['prof'],
-        'salle': salleMap[e['salle']] ?? e['salle'],
-      };
-
-      print('Payload envoyé : $payload'); // Debug
-
-      final response = await http.post(
-        Uri.parse('$baseUrl/emplois/'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
-
-      if (response.statusCode != 201) {
-        print('Erreur import : ${response.body}');
-      }
+    if (response.statusCode != 200) {
+      print('Erreur import : ${response.body}');
     }
   }
 
