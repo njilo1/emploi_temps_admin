@@ -236,6 +236,58 @@ class ApiService {
 
   // ✅ Méthode POST générique
   static Future<void> post(String endpoint, Map<String, dynamic> data) async {
+    // Traitement spécifique pour l'import d'emplois depuis un fichier JSON
+    if (endpoint == '/emplois/import/' && data.containsKey('emplois')) {
+      final modules = await fetchModules();
+      final salles = await fetchSalles();
+      final profs = await fetchProfesseurs();
+      final classes = await fetchClasses();
+
+      List<Map<String, dynamic>> emploisConvertis = [];
+
+      for (var emploi in data['emplois']) {
+        final moduleId = modules.firstWhere(
+              (m) => m['nom'].toString().toLowerCase().trim() ==
+                  emploi['module'].toString().toLowerCase().trim(),
+          orElse: () => null,
+        )?['id'];
+
+        final salleId = salles.firstWhere(
+              (s) => s['nom'].toString().toLowerCase().trim() ==
+                  emploi['salle'].toString().toLowerCase().trim(),
+          orElse: () => null,
+        )?['id'];
+
+        final profId = profs.firstWhere(
+              (p) => p['nom'].toString().toLowerCase().trim() ==
+                  emploi['prof'].toString().toLowerCase().trim(),
+          orElse: () => null,
+        )?['id'];
+
+        final classeId = classes.firstWhere(
+              (c) => c['nom'].toString().toLowerCase().trim() ==
+                  emploi['classe'].toString().toLowerCase().trim(),
+          orElse: () => null,
+        )?['id'];
+
+        if (moduleId == null || salleId == null || profId == null || classeId == null) {
+          print('⚠️ Élément introuvable : $emploi');
+          continue;
+        }
+
+        emploisConvertis.add({
+          'classe': classeId,
+          'jour': emploi['jour'],
+          'heure': emploi['heure'],
+          'module': moduleId,
+          'salle': salleId,
+          'prof': profId,
+        });
+      }
+
+      data = {'emplois': emploisConvertis};
+    }
+
     final url = Uri.parse('$baseUrl$endpoint');
     final response = await http.post(
       url,
@@ -244,7 +296,7 @@ class ApiService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception("Erreur ${response.statusCode} : ${response.body}");
+      throw Exception('Erreur ${response.statusCode} : ${response.body}');
     }
   }
 }
