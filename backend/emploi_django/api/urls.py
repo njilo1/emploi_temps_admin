@@ -19,10 +19,10 @@ router.register(r'emplois', EmploiViewSet)
 
 # Définition des URLs
 urlpatterns = [
-    path('', include(router.urls)),
-
-    # ✅ Routes personnalisées
+    # ✅ Routes personnalisées d'abord pour éviter les conflits avec le router
     path('emplois/generate/', generer_emplois, name='generer_emplois'),
     path('emplois/classe/<int:classe_id>/', emploi_par_classe, name='emploi_par_classe'),
     path('emplois/import/', import_emplois, name='import_emplois'),
+
+    path('', include(router.urls)),
 ]
