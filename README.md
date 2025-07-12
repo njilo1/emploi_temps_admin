@@ -46,6 +46,15 @@ flutter run -d linux     # sur Linux
 flutter run -d chrome    # Web
 ```
 
+### Lancement automatique multi-plateforme
+
+Un script `run_all.py` permet de démarrer le serveur Django puis
+l'application Flutter sur la plateforme détectée. Exécutez simplement :
+
+```bash
+python run_all.py
+```
+
 ## 🗄️ Base de données SQLite
 
 - **Django :** `backend/emploi_django/db.sqlite3`
