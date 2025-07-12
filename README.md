@@ -152,9 +152,12 @@ SECRET_KEY=your-secret-key
 DATABASE_URL=sqlite:///db.sqlite3
 ```
 
-### Configuration Django
-Modifier `backend/emploi_django/emploi_django/settings.py` selon vos besoins.
+Un script `run_all.py` permet de démarrer le serveur Django puis
+l'application Flutter sur la plateforme détectée. Exécutez simplement :
 
+```bash
+python run_all.py
+```
 ## 📱 Plateformes Supportées
 
 - ✅ **Linux** (Ubuntu, Debian, Kali)
