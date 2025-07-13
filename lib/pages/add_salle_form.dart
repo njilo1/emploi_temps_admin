@@ -28,7 +28,7 @@ class _AddSalleFormState extends State<AddSalleForm> {
     setState(() => _isLoading = true);
 
     try {
-      await ApiService.addSalle(data);
+      await ApiService.post('/salles/', data);
 
       if (!mounted) return;
       await showDialog<void>(

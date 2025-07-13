@@ -30,44 +30,44 @@ class _AddClasseFormState extends State<AddClasseForm> {
     setState(() => _isLoading = true);
 
     try {
-      await ApiService.addClasse(data);
+      await ApiService.post('/classes/', data);
 
       if (!mounted) return;
       await showDialog<void>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('✅ Élément enregistré avec succès'),
-          content:
-              const Text('Voulez-vous voir la liste ou ajouter un nouveau ?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const EntityListPage(
-                      endpoint: 'classes/',
-                      fieldsToShow: ['nom', 'filiere', 'effectif'],
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('✅ Élément enregistré avec succès'),
+            content:
+                const Text('Voulez-vous voir la liste ou ajouter un nouveau ?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const EntityListPage(
+                        endpoint: 'classes/',
+                        fieldsToShow: ['nom', 'filiere', 'effectif'],
+                      ),
                     ),
-                  ),
-                );
-              },
-              child: const Text('Voir la liste'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _formKey.currentState!.reset();
-                _nomController.clear();
-                _effectifController.clear();
-                setState(() => _selectedFiliereId = null);
-              },
-              child: const Text('Ajouter un nouvel élément'),
-            ),
-          ],
-        ),
-      );
+                  );
+                },
+                child: const Text('Voir la liste'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _formKey.currentState!.reset();
+                  _nomController.clear();
+                  _effectifController.clear();
+                  setState(() => _selectedFiliereId = null);
+                },
+                child: const Text('Ajouter un nouvel élément'),
+              ),
+            ],
+          ),
+        );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
