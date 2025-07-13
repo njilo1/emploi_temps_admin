@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:http/http.dart' as http;
 import '../services/emploi_generator.dart';
@@ -13,7 +13,7 @@ class PlanningImportPage extends StatefulWidget {
 }
 
 class _PlanningImportPageState extends State<PlanningImportPage> {
-  String? _filePath;
+  XFile? _selectedFile;
   bool _loading = false;
   String? _message;
   final EmploiGenerator _generator = EmploiGenerator();
@@ -28,13 +28,13 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
 
     if (fichier != null) {
       setState(() {
-        _filePath = fichier.path;
+        _selectedFile = fichier;
       });
     }
   }
 
   Future<void> _sendFile() async {
-    if (_filePath == null) return;
+    if (_selectedFile == null) return;
 
     setState(() {
       _loading = true;
@@ -48,7 +48,14 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
         Uri.parse('http://10.213.46.183:8000/parse-word'),
       );
 
-      request.files.add(await http.MultipartFile.fromPath('file', _filePath!));
+      if (kIsWeb) {
+        final bytes = await _selectedFile!.readAsBytes();
+        request.files.add(http.MultipartFile.fromBytes('file', bytes,
+            filename: _selectedFile!.name));
+      } else {
+        request.files
+            .add(await http.MultipartFile.fromPath('file', _selectedFile!.path));
+      }
 
       final response = await request.send();
       final body = await response.stream.bytesToString();
@@ -92,7 +99,7 @@ class _PlanningImportPageState extends State<PlanningImportPage> {
             ),
             const SizedBox(height: 10),
             Text(
-              _filePath ?? 'Aucun fichier sélectionné',
+              _selectedFile?.name ?? 'Aucun fichier sélectionné',
               style: const TextStyle(fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 20),

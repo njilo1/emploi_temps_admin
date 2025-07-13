@@ -1,6 +1,7 @@
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' as io;
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -149,10 +150,17 @@ class _EmploiPageState extends State<EmploiPage> {
   Future<void> _exportPdf() async {
     if (_selectedClassId == null) return;
 
-    try {
-      Directory? saveDir;
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Export PDF indisponible sur le Web')),
+      );
+      return;
+    }
 
-      if (Platform.isAndroid) {
+    try {
+      io.Directory? saveDir;
+
+      if (io.Platform.isAndroid) {
         final status = await Permission.storage.request();
         if (!status.isGranted) {
           ScaffoldMessenger.of(context).showSnackBar(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'module_list_page.dart';
 
 class AddModulePage extends StatefulWidget {
   final int? moduleId;
@@ -87,10 +88,47 @@ class _AddModulePageState extends State<AddModulePage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Module enregistré avec succès")),
+        await showDialog<void>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('✅ Élément enregistré avec succès'),
+            content: const Text(
+                'Voulez-vous voir la liste ou ajouter un nouveau ?'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ModuleListPage(),
+                    ),
+                  );
+                },
+                child: const Text('Voir la liste'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  if (widget.moduleId == null) {
+                    _formKey.currentState!.reset();
+                    _nomController.clear();
+                    setState(() {
+                      _selectedTranche = null;
+                      _selectedJour = null;
+                      _selectedClasse = null;
+                      _selectedSalle = null;
+                      _selectedProf = null;
+                    });
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+                child: const Text('Ajouter un nouvel élément'),
+              ),
+            ],
+          ),
         );
-        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
