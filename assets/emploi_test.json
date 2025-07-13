@@ -4,9 +4,49 @@
       "classe": "TIC L2",
       "jour": "Lundi",
       "heure": "07H30 - 10H00",
-      "module": "Programmation avancée",
+      "module": "Programmation avancee",
       "salle": "Salle B",
-      "prof": "Dr. NKO’O"
+      "prof": "Dr. NKO'O"
+    },
+    {
+      "classe": "TIC L2",
+      "jour": "Mardi",
+      "heure": "10H15 - 12H45",
+      "module": "Base de donnees",
+      "salle": "Salle A",
+      "prof": "Dr. MARTIN"
+    },
+    {
+      "classe": "TIC L2",
+      "jour": "Mercredi",
+      "heure": "13H00 - 15H30",
+      "module": "Algorithmique",
+      "salle": "Salle C",
+      "prof": "Dr. DUPONT"
+    },
+    {
+      "classe": "TIC L2",
+      "jour": "Jeudi",
+      "heure": "07H30 - 10H00",
+      "module": "Reseaux",
+      "salle": "Labo Info",
+      "prof": "Dr. LEROY"
+    },
+    {
+      "classe": "TIC L2",
+      "jour": "Vendredi",
+      "heure": "10H15 - 12H45",
+      "module": "Anglais",
+      "salle": "Salle A",
+      "prof": "Prof. SMITH"
+    },
+    {
+      "classe": "TIC L1",
+      "jour": "Jeudi",
+      "heure": "07H30 - 10H00",
+      "module": "Mathematiques",
+      "salle": "Salle D",
+      "prof": "Dr. DURAND"
     }
   ]
 }

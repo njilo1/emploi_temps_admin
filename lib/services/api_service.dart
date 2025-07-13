@@ -155,53 +155,12 @@ class ApiService {
   }
 
   static Future<void> importEmplois(Map<String, dynamic> data) async {
-    final modules = await fetchModules();
-    final salles = await fetchSalles();
-    final profs = await fetchProfesseurs();
-    final classes = await fetchClasses();
-
-    List<Map<String, dynamic>> emploisConvertis = [];
-
-    for (var emploi in data['emplois']) {
-      final moduleId = modules.firstWhere(
-            (m) => m['nom'].toString().toLowerCase().trim() == emploi['module'].toString().toLowerCase().trim(),
-        orElse: () => null,
-      )?['id'];
-
-      final salleId = salles.firstWhere(
-            (s) => s['nom'].toString().toLowerCase().trim() == emploi['salle'].toString().toLowerCase().trim(),
-        orElse: () => null,
-      )?['id'];
-
-      final profId = profs.firstWhere(
-            (p) => p['nom'].toString().toLowerCase().trim() == emploi['prof'].toString().toLowerCase().trim(),
-        orElse: () => null,
-      )?['id'];
-
-      final classeId = classes.firstWhere(
-            (c) => c['nom'].toString().toLowerCase().trim() == emploi['classe'].toString().toLowerCase().trim(),
-        orElse: () => null,
-      )?['id'];
-
-      if (moduleId == null || salleId == null || profId == null || classeId == null) {
-        print('⚠️ Élément introuvable : $emploi');
-        continue;
-      }
-
-      emploisConvertis.add({
-        "classe": classeId,
-        "jour": emploi["jour"],
-        "heure": emploi["heure"],
-        "module": moduleId,
-        "salle": salleId,
-        "prof": profId,
-      });
-    }
-
+    // Envoyer directement les données sans conversion d'IDs
+    // L'API Django s'occupera de créer les éléments manquants
     final response = await http.post(
       Uri.parse('$baseUrl/emplois/import/'),
       headers: _headers,
-      body: jsonEncode({"emplois": emploisConvertis}),
+      body: jsonEncode(data),
     );
 
     if (response.statusCode != 200) {
@@ -236,58 +195,6 @@ class ApiService {
 
   // ✅ Méthode POST générique
   static Future<void> post(String endpoint, Map<String, dynamic> data) async {
-    // Traitement spécifique pour l'import d'emplois depuis un fichier JSON
-    if (endpoint == '/emplois/import/' && data.containsKey('emplois')) {
-      final modules = await fetchModules();
-      final salles = await fetchSalles();
-      final profs = await fetchProfesseurs();
-      final classes = await fetchClasses();
-
-      List<Map<String, dynamic>> emploisConvertis = [];
-
-      for (var emploi in data['emplois']) {
-        final moduleId = modules.firstWhere(
-              (m) => m['nom'].toString().toLowerCase().trim() ==
-                  emploi['module'].toString().toLowerCase().trim(),
-          orElse: () => null,
-        )?['id'];
-
-        final salleId = salles.firstWhere(
-              (s) => s['nom'].toString().toLowerCase().trim() ==
-                  emploi['salle'].toString().toLowerCase().trim(),
-          orElse: () => null,
-        )?['id'];
-
-        final profId = profs.firstWhere(
-              (p) => p['nom'].toString().toLowerCase().trim() ==
-                  emploi['prof'].toString().toLowerCase().trim(),
-          orElse: () => null,
-        )?['id'];
-
-        final classeId = classes.firstWhere(
-              (c) => c['nom'].toString().toLowerCase().trim() ==
-                  emploi['classe'].toString().toLowerCase().trim(),
-          orElse: () => null,
-        )?['id'];
-
-        if (moduleId == null || salleId == null || profId == null || classeId == null) {
-          print('⚠️ Élément introuvable : $emploi');
-          continue;
-        }
-
-        emploisConvertis.add({
-          'classe': classeId,
-          'jour': emploi['jour'],
-          'heure': emploi['heure'],
-          'module': moduleId,
-          'salle': salleId,
-          'prof': profId,
-        });
-      }
-
-      data = {'emplois': emploisConvertis};
-    }
-
     final url = Uri.parse('$baseUrl$endpoint');
     final response = await http.post(
       url,
@@ -296,6 +203,16 @@ class ApiService {
     );
 
     if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception('Erreur ${response.statusCode} : ${response.body}');
+    }
+  }
+
+  // 🗑️ Méthode pour vider tous les emplois
+  static Future<void> deleteAllEmplois() async {
+    final url = Uri.parse('$baseUrl/emplois/clear/');
+    final response = await http.delete(url, headers: _headers);
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception('Erreur ${response.statusCode} : ${response.body}');
     }
   }

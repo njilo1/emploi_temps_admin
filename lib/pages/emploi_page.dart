@@ -32,22 +32,36 @@ class _EmploiPageState extends State<EmploiPage> {
   }
 
   Future<void> _chargerClasses() async {
-    final data = await ApiService.fetchClasses();
-    setState(() {
-      _classes = data
-          .map((c) => {
-        'id': c['id'].toString(),
-        'nom': c['nom'] ?? 'Sans nom',
-      })
-          .toList();
-      if (_classes.isNotEmpty) {
-        _selectedClassId = _classes.first['id'];
-      }
-    });
+    try {
+      final data = await ApiService.fetchClasses();
+      setState(() {
+        _classes = data
+            .map((c) => {
+          'id': c['id'].toString(),
+          'nom': c['nom'] ?? 'Sans nom',
+        })
+            .toList();
+        if (_classes.isNotEmpty) {
+          _selectedClassId = _classes.first['id'];
+        }
+      });
+      print('📚 Classes chargées: ${_classes.length} classes trouvées');
+    } catch (e) {
+      print('❌ Erreur lors du chargement des classes: $e');
+      setState(() {
+        _classes = [];
+        _selectedClassId = null;
+      });
+    }
   }
 
   Future<void> _genererEmploi() async {
-    if (_selectedClassId == null) return;
+    if (_selectedClassId == null) {
+      setState(() {
+        _message = "❌ Veuillez sélectionner une classe d'abord";
+      });
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -56,13 +70,21 @@ class _EmploiPageState extends State<EmploiPage> {
     });
 
     try {
+      print('🔄 Génération d\'emploi pour la classe $_selectedClassId');
       await ApiService.generateEmplois();
+      
+      // Attendre un peu pour que la génération soit terminée
+      await Future.delayed(const Duration(milliseconds: 500));
+      
       final result = await ApiService.fetchEmploiParClasse(_selectedClassId!);
+      print('📅 Emploi reçu de l\'API (génération): $result');
       setState(() {
         emplois = result;
-        _message = "✅ Emploi du temps généré avec succès !";
+        _message = "✅ Emploi du temps généré avec succès ! ${result.length} jours";
       });
+      print('📅 Emploi généré: ${result.length} jours');
     } catch (e) {
+      print('❌ Erreur lors de la génération: $e');
       setState(() {
         _message = "❌ Erreur : $e";
       });
@@ -77,23 +99,43 @@ class _EmploiPageState extends State<EmploiPage> {
     setState(() {
       _isLoading = true;
       _message = null;
+      emplois = {};
     });
 
     try {
+      // Forcer le rechargement du fichier JSON
       final String jsonContent = await rootBundle.loadString('assets/emploi_test.json');
+      print('📄 Fichier JSON brut: $jsonContent');
       final Map<String, dynamic> data = json.decode(jsonContent);
 
-      // 🔁 Remplacement de la ligne problématique
+      print('📥 Import des données: ${data['emplois'].length} emplois à importer');
+      print('📄 Contenu JSON: ${json.encode(data)}');
+      
+      // Import des emplois
       await ApiService.post('/emplois/import/', data);
-
+      
+      // Recharger la liste des classes après import
+      await _chargerClasses();
+      
+      // Attendre un peu pour que la base de données soit mise à jour
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      // Si une classe est sélectionnée, charger son emploi
       if (_selectedClassId != null) {
         final result = await ApiService.fetchEmploiParClasse(_selectedClassId!);
+        print('📅 Emploi reçu de l\'API: $result');
         setState(() {
           emplois = result;
-          _message = "✅ Emploi importé avec succès depuis JSON !";
+          _message = "✅ Emploi importé avec succès ! ${result.length} jours chargés";
+        });
+        print('📅 Emploi chargé pour la classe $_selectedClassId: ${result.length} jours');
+      } else {
+        setState(() {
+          _message = "✅ Import réussi ! Sélectionnez une classe pour voir l'emploi";
         });
       }
     } catch (e) {
+      print('❌ Erreur lors de l\'import: $e');
       setState(() {
         _message = "❌ Import échoué : $e";
       });
@@ -180,7 +222,7 @@ class _EmploiPageState extends State<EmploiPage> {
                         child: DropdownButton<String>(
                           value: _selectedClassId,
                           isExpanded: true,
-                          hint: const Text("Choisir une classe"),
+                          hint: Text(_classes.isEmpty ? "Aucune classe trouvée" : "Choisir une classe"),
                           items: _classes.map((classe) {
                             return DropdownMenuItem<String>(
                               value: classe['id'],
@@ -195,10 +237,24 @@ class _EmploiPageState extends State<EmploiPage> {
                         ),
                       ),
                     ),
+                    IconButton(
+                      onPressed: _chargerClasses,
+                      icon: const Icon(Icons.refresh, color: Colors.teal),
+                      tooltip: 'Recharger les classes',
+                    ),
                   ],
                 ),
               ),
             ),
+            if (_classes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Aucune classe disponible. Importez des données ou créez des classes.',
+                  style: TextStyle(color: Colors.orange[700], fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _exportPdf,
@@ -232,6 +288,62 @@ class _EmploiPageState extends State<EmploiPage> {
                   label: const Text("Importer depuis JSON"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    textStyle: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    // Demander confirmation avant de vider
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Confirmation'),
+                        content: const Text('Êtes-vous sûr de vouloir vider toute la base de données des emplois ?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            child: const Text('Vider'),
+                          ),
+                        ],
+                      ),
+                    );
+                    
+                    if (confirmed != true) return;
+                    
+                    setState(() {
+                      _isLoading = true;
+                      _message = null;
+                      emplois = {};
+                    });
+                    try {
+                      // Vider tous les emplois en utilisant DELETE
+                      await ApiService.deleteAllEmplois();
+                      await _chargerClasses();
+                      setState(() {
+                        _message = "🗑️ Base de données vidée";
+                      });
+                    } catch (e) {
+                      setState(() {
+                        _message = "❌ Erreur: $e";
+                      });
+                    } finally {
+                      setState(() {
+                        _isLoading = false;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text("Vider la base"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[600],
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                     textStyle: const TextStyle(fontSize: 16),

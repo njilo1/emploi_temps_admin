@@ -53,32 +53,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'emploi_django.wsgi.application'
 
-# 📦 Base de données (choisis ton moteur)
-
-# 🔹 Pour PostgreSQL :
+# 📦 Base de données SQLite
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'emploi_db',
-        'USER': 'django_user',
-        'PASSWORD': 'django123',
-        'HOST': 'localhost',
-        'PORT': '5432',  # <- version 16
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
-
-# 🔹 Ou pour MySQL :
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'emploi_db',
-#         'USER': 'root',
-#         'PASSWORD': 'votre_mot_de_passe',
-#         'HOST': 'localhost',
-#         'PORT': '3306',
-#     }
-# }
 
 # 🔐 Validation des mots de passe
 AUTH_PASSWORD_VALIDATORS = [
@@ -93,6 +74,9 @@ LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Africa/Douala'
 USE_I18N = True
 USE_TZ = True
+
+# 🔤 Encodage UTF-8
+DEFAULT_CHARSET = 'utf-8'
 
 # 📁 Fichiers statiques
 STATIC_URL = 'static/'
