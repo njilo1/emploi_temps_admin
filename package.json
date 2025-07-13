@@ -1,0 +1,45 @@
+{
+  "name": "emploi-temps-admin",
+  "version": "1.0.0",
+  "description": "Application de gestion d'emploi du temps avec Flutter et Django",
+  "scripts": {
+    "start": "./start_all_platforms.sh",
+    "start:linux": "./start_all_platforms.sh",
+    "start:macos": "./start_macos.sh",
+    "start:windows": "start_windows.bat",
+    "start:django": "./start_django.sh",
+    "install:python": "python3 -m venv .venv && source .venv/bin/activate && pip install -r backend/emploi_django/requirements.txt",
+    "install:flutter": "flutter pub get",
+    "install:all": "npm run install:python && npm run install:flutter",
+    "test": "cd backend/emploi_django && source ../../.venv/bin/activate && python manage.py test",
+    "test:flutter": "flutter test",
+    "clean": "rm -rf .venv build .dart_tool && flutter clean",
+    "build:linux": "flutter build linux",
+    "build:macos": "flutter build macos",
+    "build:windows": "flutter build windows",
+    "build:web": "flutter build web",
+    "build:android": "flutter build apk",
+    "build:ios": "flutter build ios"
+  },
+  "keywords": [
+    "flutter",
+    "django",
+    "emploi-du-temps",
+    "gestion",
+    "education"
+  ],
+  "author": "Votre Nom",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0",
+    "python": ">=3.8.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/votre-username/emploi-temps-admin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/votre-username/emploi-temps-admin/issues"
+  },
+  "homepage": "https://github.com/votre-username/emploi-temps-admin#readme"
+} 

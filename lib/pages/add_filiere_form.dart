@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/confirmation_dialog.dart';
 
 class AddFiliereForm extends StatefulWidget {
-  const AddFiliereForm({Key? key}) : super(key: key);
+  final VoidCallback? onFiliereAdded;
+  
+  const AddFiliereForm({Key? key, this.onFiliereAdded}) : super(key: key);
 
   @override
   State<AddFiliereForm> createState() => _AddFiliereFormState();
@@ -11,34 +14,61 @@ class AddFiliereForm extends StatefulWidget {
 class _AddFiliereFormState extends State<AddFiliereForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
-  final _departementController = TextEditingController();
+  bool _isLoading = false;
 
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _departementController.dispose();
-    super.dispose();
+  void _resetForm() {
+    _nomController.clear();
+    _formKey.currentState!.reset();
+  }
+
+  void _navigateToList() {
+    Navigator.pushNamed(context, '/liste_filieres');
   }
 
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
       final data = {
         "nom": _nomController.text.trim(),
-        "departement": _departementController.text.trim(),
       };
 
-      try {
-        await ApiService.addFiliere(data);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Filière ajoutée avec succès')),
+      await ApiService.addFiliere(data);
+
+      if (mounted) {
+        // Afficher le popup de confirmation
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          title: '✅ Filière enregistrée avec succès',
+          entityType: 'filière',
+          onViewList: _navigateToList,
+          onAddNew: _resetForm,
         );
-        _formKey.currentState!.reset();
-        _nomController.clear();
-        _departementController.clear();
-      } catch (e) {
+
+        // Notifier le parent pour rafraîchir la liste
+        widget.onFiliereAdded?.call();
+      }
+    } catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
+          SnackBar(
+            content: Text('❌ Erreur lors de l\'ajout: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -55,37 +85,65 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Ajouter une filière',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  const Icon(Icons.add_circle, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Ajouter une filière',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
+              
               TextFormField(
                 controller: _nomController,
                 decoration: const InputDecoration(
                   labelText: 'Nom de la filière',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.school),
+                  hintText: 'Ex: Informatique, Mathématiques...',
                 ),
-                validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
-              ),
-              const SizedBox(height: 15),
-              TextFormField(
-                controller: _departementController,
-                decoration: const InputDecoration(
-                  labelText: 'Département',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Le nom de la filière est obligatoire';
+                  }
+                  if (value.trim().length < 2) {
+                    return 'Le nom doit contenir au moins 2 caractères';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Enregistrer'),
+              
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _submitForm,
+                  icon: _isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                  label: Text(_isLoading ? 'Enregistrement...' : 'Enregistrer'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    super.dispose();
   }
 }
