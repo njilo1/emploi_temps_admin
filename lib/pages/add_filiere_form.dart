@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
 
 class AddFiliereForm extends StatefulWidget {
   const AddFiliereForm({Key? key}) : super(key: key);
@@ -12,6 +13,7 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _departementController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -21,25 +23,60 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
   }
 
   Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        "nom": _nomController.text.trim(),
-        "departement": _departementController.text.trim(),
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        await ApiService.addFiliere(data);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Filière ajoutée avec succès')),
-        );
-        _formKey.currentState!.reset();
-        _nomController.clear();
-        _departementController.clear();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
+    final data = {
+      "nom": _nomController.text.trim(),
+      "departement": _departementController.text.trim(),
+    };
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService.addFiliere(data);
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('✅ Élément enregistré avec succès'),
+          content:
+              const Text('Voulez-vous voir la liste ou ajouter un nouveau ?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EntityListPage(
+                      endpoint: 'filieres/',
+                      fieldsToShow: ['nom', 'departement'],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Voir la liste'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _formKey.currentState!.reset();
+                _nomController.clear();
+                _departementController.clear();
+              },
+              child: const Text('Ajouter un nouvel élément'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur : $e')));
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -79,8 +116,10 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Enregistrer'),
+                onPressed: _isLoading ? null : _submitForm,
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Enregistrer'),
               ),
             ],
           ),

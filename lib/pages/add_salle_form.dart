@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
 
 class AddSalleForm extends StatefulWidget {
   const AddSalleForm({Key? key}) : super(key: key);
@@ -13,23 +14,64 @@ class _AddSalleFormState extends State<AddSalleForm> {
   final _nomController = TextEditingController();
   final _capaciteController = TextEditingController();
   bool _disponible = true;
+  bool _isLoading = false;
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        'nom': _nomController.text.trim(),
-        'capacite': int.tryParse(_capaciteController.text.trim()) ?? 0,
-        'disponible': _disponible,
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        await ApiService.addSalle(data);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Salle ajoutée")));
-        _formKey.currentState!.reset();
-        setState(() => _disponible = true);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
+    final data = {
+      'nom': _nomController.text.trim(),
+      'capacite': int.tryParse(_capaciteController.text.trim()) ?? 0,
+      'disponible': _disponible,
+    };
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService.addSalle(data);
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('✅ Élément enregistré avec succès'),
+          content: const Text('Voulez-vous voir la liste ou ajouter un nouveau ?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EntityListPage(
+                      endpoint: 'salles/',
+                      fieldsToShow: ['nom', 'capacite', 'disponible'],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Voir la liste'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _formKey.currentState!.reset();
+                _nomController.clear();
+                _capaciteController.clear();
+                setState(() => _disponible = true);
+              },
+              child: const Text('Ajouter un nouvel élément'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -62,7 +104,12 @@ class _AddSalleFormState extends State<AddSalleForm> {
                 title: const Text("Salle disponible"),
                 onChanged: (v) => setState(() => _disponible = v),
               ),
-              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _submit,
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text("Ajouter"),
+              ),
             ],
           ),
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
 
 class AddClasseForm extends StatefulWidget {
   const AddClasseForm({Key? key}) : super(key: key);
@@ -15,6 +16,67 @@ class _AddClasseFormState extends State<AddClasseForm> {
   int? _selectedFiliereId;
 
   List<dynamic> _filieres = [];
+  bool _isLoading = false;
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final data = {
+      'nom': _nomController.text.trim(),
+      'effectif': int.parse(_effectifController.text.trim()),
+      'filiere': _selectedFiliereId,
+    };
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ApiService.addClasse(data);
+
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('✅ Élément enregistré avec succès'),
+          content:
+              const Text('Voulez-vous voir la liste ou ajouter un nouveau ?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EntityListPage(
+                      endpoint: 'classes/',
+                      fieldsToShow: ['nom', 'filiere', 'effectif'],
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Voir la liste'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _formKey.currentState!.reset();
+                _nomController.clear();
+                _effectifController.clear();
+                setState(() => _selectedFiliereId = null);
+              },
+              child: const Text('Ajouter un nouvel élément'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -23,10 +85,17 @@ class _AddClasseFormState extends State<AddClasseForm> {
   }
 
   Future<void> _loadFilieres() async {
-    final filieres = await ApiService.fetchFilieres();
-    setState(() {
-      _filieres = filieres;
-    });
+    try {
+      final filieres = await ApiService.fetchFilieres();
+      setState(() {
+        _filieres = filieres;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      }
+    }
   }
 
   @override
@@ -96,28 +165,10 @@ class _AddClasseFormState extends State<AddClasseForm> {
 
               // Bouton Enregistrer
               ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    final data = {
-                      'nom': _nomController.text.trim(),
-                      'effectif': int.parse(_effectifController.text.trim()),
-                      'filiere': _selectedFiliereId,
-                    };
-
-                    await ApiService.addClasse(data);
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Classe enregistrée avec succès')),
-                    );
-
-                    _nomController.clear();
-                    _effectifController.clear();
-                    setState(() {
-                      _selectedFiliereId = null;
-                    });
-                  }
-                },
-                child: const Text('Enregistrer'),
+                onPressed: _isLoading ? null : _submit,
+                child: _isLoading
+                    ? const CircularProgressIndicator()
+                    : const Text('Enregistrer'),
               ),
             ],
           ),
