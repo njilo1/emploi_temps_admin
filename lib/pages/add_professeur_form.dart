@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/confirmation_dialog.dart';
 
 class AddProfesseurForm extends StatefulWidget {
-  const AddProfesseurForm({Key? key}) : super(key: key);
+  final VoidCallback? onProfesseurAdded;
+  
+  const AddProfesseurForm({Key? key, this.onProfesseurAdded}) : super(key: key);
 
   @override
   State<AddProfesseurForm> createState() => _AddProfesseurFormState();
@@ -11,21 +14,61 @@ class AddProfesseurForm extends StatefulWidget {
 class _AddProfesseurFormState extends State<AddProfesseurForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
-  final _dispoController = TextEditingController();
+  bool _isLoading = false;
+
+  void _resetForm() {
+    _nomController.clear();
+    _formKey.currentState!.reset();
+  }
+
+  void _navigateToList() {
+    Navigator.pushNamed(context, '/liste_professeurs');
+  }
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
       final data = {
         'nom': _nomController.text.trim(),
-        'disponibilites': _dispoController.text.trim(),
       };
 
-      try {
-        await ApiService.addProfesseur(data);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Professeur ajouté")));
-        _formKey.currentState!.reset();
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
+      await ApiService.addProfesseur(data);
+
+      if (mounted) {
+        // Afficher le popup de confirmation
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          title: '✅ Professeur enregistré avec succès',
+          entityType: 'professeur',
+          onViewList: _navigateToList,
+          onAddNew: _resetForm,
+        );
+
+        // Notifier le parent pour rafraîchir la liste
+        widget.onProfesseurAdded?.call();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Erreur lors de l\'ajout: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -33,28 +76,64 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
   @override
   Widget build(BuildContext context) {
     return Card(
+      elevation: 4,
       margin: const EdgeInsets.all(16),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("Ajouter un professeur", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.add_circle, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text(
+                    "Ajouter un professeur",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              
               TextFormField(
                 controller: _nomController,
-                decoration: const InputDecoration(labelText: "Nom"),
-                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+                decoration: const InputDecoration(
+                  labelText: "Nom du professeur",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
+                  hintText: "Ex: Dr. Jean Dupont",
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return "Le nom du professeur est obligatoire";
+                  }
+                  if (value.trim().length < 2) {
+                    return "Le nom doit contenir au moins 2 caractères";
+                  }
+                  return null;
+                },
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _dispoController,
-                decoration: const InputDecoration(labelText: "Disponibilités"),
-                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+              const SizedBox(height: 20),
+              
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _submit,
+                  icon: _isLoading 
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                  label: Text(_isLoading ? 'Enregistrement...' : 'Ajouter'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
               ),
-              const SizedBox(height: 24),
-              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
             ],
           ),
         ),
@@ -65,7 +144,6 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
   @override
   void dispose() {
     _nomController.dispose();
-    _dispoController.dispose();
     super.dispose();
   }
 }

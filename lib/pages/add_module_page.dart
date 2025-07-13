@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../utils/confirmation_dialog.dart';
 
 class AddModulePage extends StatefulWidget {
   final int? moduleId;
-  const AddModulePage({Key? key, this.moduleId}) : super(key: key);
+  final VoidCallback? onModuleAdded;
+  
+  const AddModulePage({Key? key, this.moduleId, this.onModuleAdded}) : super(key: key);
 
   @override
   State<AddModulePage> createState() => _AddModulePageState();
@@ -12,74 +15,82 @@ class AddModulePage extends StatefulWidget {
 class _AddModulePageState extends State<AddModulePage> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
+  final _volumeHoraireController = TextEditingController();
 
-  String? _selectedTranche, _selectedJour, _selectedClasse, _selectedSalle, _selectedProf;
-
-  final _horaires = [
-    '07H30 - 10H10',
-    '10H15 - 12H45',
-    '13H00 - 15H30',
-    '15H45 - 18H15',
-  ];
-
-  final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-
-  List<dynamic> classes = [], salles = [], profs = [];
+  int? _selectedClasseId, _selectedProfId;
+  List<dynamic> classes = [], profs = [];
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    loadData().then((_) => loadExistingData());
+    _loadData();
   }
 
-  Future<void> loadData() async {
+  Future<void> _loadData() async {
     try {
       final results = await Future.wait([
         ApiService.fetchClasses(),
-        ApiService.fetchSalles(),
         ApiService.fetchProfesseurs(),
       ]);
       setState(() {
         classes = results[0];
-        salles = results[1];
-        profs = results[2];
+        profs = results[1];
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur de chargement: $e')));
-    }
-  }
-
-  Future<void> loadExistingData() async {
-    if (widget.moduleId != null) {
-      final modules = await ApiService.fetchModules();
-      final module = modules.firstWhere((m) => m['id'] == widget.moduleId, orElse: () => null);
-      if (module != null) {
-        _nomController.text = module['nom'] ?? '';
-        _selectedTranche = module['heure'];
-        _selectedJour = module['jour'];
-        _selectedClasse = module['classe'].toString();
-        _selectedSalle = module['salle'].toString();
-        _selectedProf = module['prof'].toString();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de chargement: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
 
-  Future<void> saveModule() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _resetForm() {
+    _nomController.clear();
+    _volumeHoraireController.clear();
+    setState(() {
+      _selectedClasseId = null;
+      _selectedProfId = null;
+    });
+    _formKey.currentState!.reset();
+  }
 
-    setState(() => _isLoading = true);
+  void _navigateToList() {
+    Navigator.pushNamed(context, '/liste_modules');
+  }
 
-    final data = {
-      'nom': _nomController.text.trim(),
-      'heure': _selectedTranche,
-      'jour': _selectedJour,
-      'classe': int.parse(_selectedClasse!),
-      'salle': int.parse(_selectedSalle!),
-      'prof': int.parse(_selectedProf!),
-    };
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedClasseId == null || _selectedProfId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner une classe et un professeur'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
+      final data = {
+        'nom': _nomController.text.trim(),
+        'volume_horaire': int.tryParse(_volumeHoraireController.text.trim()) ?? 3,
+        'classe': _selectedClasseId,
+        'prof': _selectedProfId,
+      };
+
       if (widget.moduleId == null) {
         await ApiService.addModule(data);
       } else {
@@ -87,39 +98,35 @@ class _AddModulePageState extends State<AddModulePage> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Module enregistré avec succès")),
+        // Afficher le popup de confirmation
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          title: '✅ Module enregistré avec succès',
+          entityType: 'module',
+          onViewList: _navigateToList,
+          onAddNew: _resetForm,
         );
-        Navigator.pop(context);
+
+        // Notifier le parent pour rafraîchir la liste
+        widget.onModuleAdded?.call();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("❌ Erreur: $e")),
+          SnackBar(
+            content: Text("❌ Erreur: $e"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-  }
-
-  Widget buildDropdown(List<dynamic> items, String? selected, String label, void Function(String?) onChanged) {
-    return DropdownButtonFormField<String>(
-      value: selected,
-      items: items.map((item) {
-        final nom = item['nom'] ?? item['code'] ?? 'Inconnu';
-        return DropdownMenuItem(value: item['id'].toString(), child: Text(nom));
-      }).toList(),
-      decoration: InputDecoration(labelText: label.capitalize()),
-      onChanged: onChanged,
-      validator: (v) => v == null ? "Champ requis" : null,
-    );
-  }
-
-  @override
-  void dispose() {
-    _nomController.dispose();
-    super.dispose();
   }
 
   @override
@@ -132,49 +139,150 @@ class _AddModulePageState extends State<AddModulePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nomController,
-                decoration: const InputDecoration(labelText: "Nom du module"),
-                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    Card(
+                      elevation: 4,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.add_circle, color: Colors.blue),
+                                const SizedBox(width: 8),
+                                Text(
+                                  widget.moduleId == null ? "Ajouter un module" : "Modifier le module",
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            TextFormField(
+                              controller: _nomController,
+                              decoration: const InputDecoration(
+                                labelText: "Nom du module",
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.book),
+                                hintText: "Ex: Mathématiques, Informatique...",
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return "Le nom du module est obligatoire";
+                                }
+                                if (value.trim().length < 2) {
+                                  return "Le nom doit contenir au moins 2 caractères";
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 15),
+                            
+                            TextFormField(
+                              controller: _volumeHoraireController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: "Volume horaire (heures)",
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.schedule),
+                                hintText: "Ex: 3",
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return "Le volume horaire est obligatoire";
+                                }
+                                final volume = int.tryParse(value);
+                                if (volume == null || volume <= 0) {
+                                  return "Le volume horaire doit être un nombre positif";
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 15),
+                            
+                            DropdownButtonFormField<int>(
+                              value: _selectedClasseId,
+                              items: classes.map((classe) {
+                                return DropdownMenuItem<int>(
+                                  value: classe['id'],
+                                  child: Text(classe['nom']),
+                                );
+                              }).toList(),
+                              decoration: const InputDecoration(
+                                labelText: "Classe",
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.class_),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedClasseId = value;
+                                });
+                              },
+                              validator: (value) =>
+                                  value == null ? "Veuillez choisir une classe" : null,
+                            ),
+                            const SizedBox(height: 15),
+                            
+                            DropdownButtonFormField<int>(
+                              value: _selectedProfId,
+                              items: profs.map((prof) {
+                                return DropdownMenuItem<int>(
+                                  value: prof['id'],
+                                  child: Text(prof['nom']),
+                                );
+                              }).toList(),
+                              decoration: const InputDecoration(
+                                labelText: "Professeur",
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.person),
+                              ),
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedProfId = value;
+                                });
+                              },
+                              validator: (value) =>
+                                  value == null ? "Veuillez choisir un professeur" : null,
+                            ),
+                            const SizedBox(height: 20),
+                            
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _isLoading ? null : _submitForm,
+                                icon: _isLoading 
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.save),
+                                label: Text(_isLoading ? 'Enregistrement...' : 'Enregistrer'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedTranche,
-                items: _horaires.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                decoration: const InputDecoration(labelText: "Tranche horaire"),
-                onChanged: (v) => setState(() => _selectedTranche = v),
-                validator: (v) => v == null ? "Champ requis" : null,
-              ),
-              DropdownButtonFormField<String>(
-                value: _selectedJour,
-                items: _jours.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                decoration: const InputDecoration(labelText: "Jour"),
-                onChanged: (v) => setState(() => _selectedJour = v),
-                validator: (v) => v == null ? "Champ requis" : null,
-              ),
-              const SizedBox(height: 16),
-              buildDropdown(classes, _selectedClasse, "Classe", (v) => setState(() => _selectedClasse = v)),
-              buildDropdown(salles, _selectedSalle, "Salle", (v) => setState(() => _selectedSalle = v)),
-              buildDropdown(profs, _selectedProf, "Professeur", (v) => setState(() => _selectedProf = v)),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: saveModule,
-                icon: const Icon(Icons.save),
-                label: const Text("Enregistrer"),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
-}
 
-extension on String {
-  String capitalize() => "${this[0].toUpperCase()}${substring(1)}";
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _volumeHoraireController.dispose();
+    super.dispose();
+  }
 }
