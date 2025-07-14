@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AddClasseForm extends StatefulWidget {
   const AddClasseForm({Key? key}) : super(key: key);
@@ -106,15 +108,31 @@ class _AddClasseFormState extends State<AddClasseForm> {
 
                     await ApiService.addClasse(data);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Classe enregistrée avec succès')),
+                    if (!mounted) return;
+                    await ConfirmationDialog.showSuccessDialog(
+                      context: context,
+                      viewButtonText: 'Voir la liste des classes',
+                      addButtonText: 'Ajouter une nouvelle classe',
+                      onViewList: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const EntityListPage(
+                              endpoint: 'classes/',
+                              fieldsToShow: ['nom', 'filiere', 'effectif'],
+                            ),
+                          ),
+                        );
+                      },
+                      onAddNew: () {
+                        _formKey.currentState!.reset();
+                        _nomController.clear();
+                        _effectifController.clear();
+                        setState(() {
+                          _selectedFiliereId = null;
+                        });
+                      },
                     );
-
-                    _nomController.clear();
-                    _effectifController.clear();
-                    setState(() {
-                      _selectedFiliereId = null;
-                    });
                   }
                 },
                 child: const Text('Enregistrer'),

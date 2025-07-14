@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'module_list_page.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AddModulePage extends StatefulWidget {
   final int? moduleId;
@@ -87,12 +89,29 @@ class _AddModulePageState extends State<AddModulePage> {
         await ApiService.updateModule(widget.moduleId!.toString(), data);
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Module enregistré avec succès")),
-        );
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+      await ConfirmationDialog.showSuccessDialog(
+        context: context,
+        viewButtonText: 'Voir la liste des modules',
+        addButtonText: 'Ajouter un nouveau module',
+        onViewList: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ModuleListPage()),
+          );
+        },
+        onAddNew: () {
+          _formKey.currentState!.reset();
+          _nomController.clear();
+          setState(() {
+            _selectedJour = null;
+            _selectedHeure = null;
+            _selectedClasse = null;
+            _selectedSalle = null;
+            _selectedProf = null;
+          });
+        },
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
