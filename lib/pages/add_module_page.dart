@@ -13,16 +13,16 @@ class _AddModulePageState extends State<AddModulePage> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
 
-  String? _selectedTranche, _selectedJour, _selectedClasse, _selectedSalle, _selectedProf;
+  String? _selectedJour, _selectedHeure, _selectedClasse, _selectedSalle, _selectedProf;
 
+  final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  
   final _horaires = [
-    '07H30 - 10H10',
+    '07H30 - 10H00',
     '10H15 - 12H45',
     '13H00 - 15H30',
     '15H45 - 18H15',
   ];
-
-  final _jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 
   List<dynamic> classes = [], salles = [], profs = [];
   bool _isLoading = false;
@@ -56,8 +56,8 @@ class _AddModulePageState extends State<AddModulePage> {
       final module = modules.firstWhere((m) => m['id'] == widget.moduleId, orElse: () => null);
       if (module != null) {
         _nomController.text = module['nom'] ?? '';
-        _selectedTranche = module['heure'];
-        _selectedJour = module['jour'];
+        _selectedJour = module['jour'] ?? module['jours']?.split(',').first;
+        _selectedHeure = module['heure'];
         _selectedClasse = module['classe'].toString();
         _selectedSalle = module['salle'].toString();
         _selectedProf = module['prof'].toString();
@@ -72,8 +72,9 @@ class _AddModulePageState extends State<AddModulePage> {
 
     final data = {
       'nom': _nomController.text.trim(),
-      'heure': _selectedTranche,
-      'jour': _selectedJour,
+      'jour': _selectedJour, // Jour spécifique du cours
+      'heure': _selectedHeure, // Heure spécifique du cours
+      'jours': _selectedJour, // Jours autorisés (un seul jour)
       'classe': int.parse(_selectedClasse!),
       'salle': int.parse(_selectedSalle!),
       'prof': int.parse(_selectedProf!),
@@ -132,45 +133,46 @@ class _AddModulePageState extends State<AddModulePage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              TextFormField(
-                controller: _nomController,
-                decoration: const InputDecoration(labelText: "Nom du module"),
-                validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+              padding: const EdgeInsets.all(16.0),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  children: [
+                    TextFormField(
+                      controller: _nomController,
+                      decoration: const InputDecoration(labelText: "Nom du module"),
+                      validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _selectedJour,
+                      items: _jours.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                      decoration: const InputDecoration(labelText: "Jour du cours"),
+                      onChanged: (v) => setState(() => _selectedJour = v),
+                      validator: (v) => v == null ? "Champ requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _selectedHeure,
+                      items: _horaires.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                      decoration: const InputDecoration(labelText: "Heure du cours"),
+                      onChanged: (v) => setState(() => _selectedHeure = v),
+                      validator: (v) => v == null ? "Champ requis" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    buildDropdown(classes, _selectedClasse, "Classe", (v) => setState(() => _selectedClasse = v)),
+                    buildDropdown(salles, _selectedSalle, "Salle", (v) => setState(() => _selectedSalle = v)),
+                    buildDropdown(profs, _selectedProf, "Professeur", (v) => setState(() => _selectedProf = v)),
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: saveModule,
+                      icon: const Icon(Icons.save),
+                      label: const Text("Enregistrer"),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedTranche,
-                items: _horaires.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                decoration: const InputDecoration(labelText: "Tranche horaire"),
-                onChanged: (v) => setState(() => _selectedTranche = v),
-                validator: (v) => v == null ? "Champ requis" : null,
-              ),
-              DropdownButtonFormField<String>(
-                value: _selectedJour,
-                items: _jours.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                decoration: const InputDecoration(labelText: "Jour"),
-                onChanged: (v) => setState(() => _selectedJour = v),
-                validator: (v) => v == null ? "Champ requis" : null,
-              ),
-              const SizedBox(height: 16),
-              buildDropdown(classes, _selectedClasse, "Classe", (v) => setState(() => _selectedClasse = v)),
-              buildDropdown(salles, _selectedSalle, "Salle", (v) => setState(() => _selectedSalle = v)),
-              buildDropdown(profs, _selectedProf, "Professeur", (v) => setState(() => _selectedProf = v)),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: saveModule,
-                icon: const Icon(Icons.save),
-                label: const Text("Enregistrer"),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

@@ -42,11 +42,31 @@ class Professeur(models.Model):
 
 # -------- MODULE --------
 class Module(models.Model):
+    JOUR_CHOICES = [
+        ('Lundi', 'Lundi'),
+        ('Mardi', 'Mardi'),
+        ('Mercredi', 'Mercredi'),
+        ('Jeudi', 'Jeudi'),
+        ('Vendredi', 'Vendredi'),
+        ('Samedi', 'Samedi'),
+    ]
+    
     nom = models.CharField(max_length=100)
     volume_horaire = models.PositiveIntegerField(default=3)
     prof = models.ForeignKey(Professeur, on_delete=models.SET_NULL, null=True)
     classe = models.ForeignKey('Classe', on_delete=models.CASCADE, default=1)
+    salle = models.ForeignKey(Salle, on_delete=models.SET_NULL, null=True, blank=True)
+    jour = models.CharField(max_length=20, choices=JOUR_CHOICES, null=True, blank=True)
+    heure = models.CharField(max_length=50, null=True, blank=True)  # ex : "07H30 - 10H00"
+    jours = models.CharField(
+        max_length=200, 
+        default='Lundi,Mardi,Mercredi,Jeudi,Vendredi,Samedi',
+        help_text="Jours autorisés pour ce module (séparés par des virgules)"
+    )
 
+    def get_jours_list(self):
+        """Retourne la liste des jours autorisés pour ce module"""
+        return [jour.strip() for jour in self.jours.split(',') if jour.strip()]
 
     def __str__(self):
         return self.nom

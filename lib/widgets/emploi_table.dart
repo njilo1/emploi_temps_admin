@@ -30,16 +30,16 @@ class EmploiTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Définir une largeur fixe pour chaque colonne
-    const double columnWidth = 160.0;
+    // Définir une largeur fixe pour chaque colonne (augmentée pour meilleure lisibilité)
+    const double columnWidth = 180.0;
     const double hourColumnWidth = 100.0;
     
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columnSpacing: 0,
-        dataRowMinHeight: 80,
-        dataRowMaxHeight: 80,
+        dataRowMinHeight: 90, // Augmenté de 60 à 90
+        dataRowMaxHeight: 90, // Augmenté de 60 à 90
         border: TableBorder(
           horizontalInside: BorderSide(color: Colors.grey.shade300, width: 1),
           verticalInside: BorderSide(color: Colors.grey.shade300, width: 1),
@@ -52,7 +52,7 @@ class EmploiTable extends StatelessWidget {
           DataColumn(
             label: Container(
               width: hourColumnWidth,
-              height: 50,
+              height: 50, // Augmenté de 40 à 50
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: Colors.teal.shade50,
@@ -62,14 +62,14 @@ class EmploiTable extends StatelessWidget {
               ),
               child: const Text(
                 'Heure',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal), // Augmenté de 11 à 13
               ),
             ),
           ),
           ...jours.map((jour) => DataColumn(
             label: Container(
               width: columnWidth,
-              height: 50,
+              height: 50, // Augmenté de 40 à 50
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
@@ -79,7 +79,7 @@ class EmploiTable extends StatelessWidget {
               ),
               child: Text(
                 jour,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade800),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade800), // Augmenté de 11 à 13
                 textAlign: TextAlign.center,
               ),
             ),
@@ -92,7 +92,7 @@ class EmploiTable extends StatelessWidget {
               DataCell(
                 Container(
                   width: hourColumnWidth,
-                  height: 80,
+                  height: 90, // Augmenté de 60 à 90
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: Colors.grey.shade50,
@@ -103,7 +103,7 @@ class EmploiTable extends StatelessWidget {
                   child: Text(
                     isPause ? 'Pause' : heure,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 11, // Augmenté de 9 à 11
                       fontWeight: FontWeight.w500,
                       fontStyle: isPause ? FontStyle.italic : FontStyle.normal,
                       color: isPause ? Colors.grey[600] : Colors.teal.shade700,
@@ -117,8 +117,8 @@ class EmploiTable extends StatelessWidget {
                 return DataCell(
                   Container(
                     width: columnWidth,
-                    height: 80,
-                    padding: const EdgeInsets.all(4),
+                    height: 90, // Augmenté de 60 à 90
+                    padding: const EdgeInsets.all(6), // Augmenté de 3 à 6
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: contenu.isNotEmpty ? Colors.white : Colors.grey.shade50,
@@ -127,37 +127,7 @@ class EmploiTable extends StatelessWidget {
                       ),
                     ),
                     child: contenu.isNotEmpty
-                        ? Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: contenu.split('\n').map((line) {
-                              final trimmedLine = line.trim();
-                              if (trimmedLine.isEmpty) return const SizedBox.shrink();
-                              
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 0.5),
-                                child: Text(
-                                  trimmedLine,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: trimmedLine.contains('Salle') 
-                                        ? FontWeight.w400 
-                                        : trimmedLine.contains('Dr.') || trimmedLine.contains('Prof.')
-                                            ? FontWeight.w500
-                                            : FontWeight.w600,
-                                    color: trimmedLine.contains('Salle') 
-                                        ? Colors.grey[700]
-                                        : trimmedLine.contains('Dr.') || trimmedLine.contains('Prof.')
-                                            ? Colors.blue[700]
-                                            : Colors.black87,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                          )
+                        ? _buildEmploiContent(contenu)
                         : const SizedBox.shrink(),
                   ),
                 );
@@ -167,5 +137,131 @@ class EmploiTable extends StatelessWidget {
         }).toList(),
       ),
     );
+  }
+
+  Widget _buildEmploiContent(String contenu) {
+    // Diviser le contenu par les sauts de ligne (\n) - format réel de l'API
+    final parts = contenu.split('\n');
+    
+    if (parts.length >= 3) {
+      final module = parts[0].trim();
+      final salle = parts[1].trim();
+      final prof = parts[2].trim();
+      
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Module (nom du cours) - plus visible
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade50,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              module,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 3),
+          // Salle en gras et foncée
+          Text(
+            salle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87, // Plus foncé
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          // Professeur en bleu
+          Text(
+            prof,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Colors.blue,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    } else if (parts.length == 2) {
+      // Fallback pour 2 éléments
+      final module = parts[0].trim();
+      final salle = parts[1].trim();
+      
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Module avec fond coloré
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.teal.shade50,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              module,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 3),
+          // Salle en gras et foncée
+          Text(
+            salle,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87, // Plus foncé
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    } else {
+      // Fallback si le format n'est pas correct
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          contenu,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
+      );
+    }
   }
 }

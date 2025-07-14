@@ -55,6 +55,34 @@ class _EmploiPageState extends State<EmploiPage> {
     }
   }
 
+  Future<void> _viderBaseDeDonnees() async {
+    setState(() {
+      _isLoading = true;
+      _message = null;
+      emplois = {};
+    });
+
+    try {
+      await ApiService.deleteAllEmplois();
+      await _chargerClasses();
+      
+      setState(() {
+        _message = "🗑️ Base de données vidée avec succès !";
+      });
+      
+      print('🗑️ Base de données vidée');
+    } catch (e) {
+      print('❌ Erreur lors du vidage: $e');
+      setState(() {
+        _message = "❌ Erreur lors du vidage : $e";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Future<void> _genererEmploi() async {
     if (_selectedClassId == null) {
       setState(() {
@@ -193,187 +221,442 @@ class _EmploiPageState extends State<EmploiPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Génération de l’emploi du temps'),
-        backgroundColor: Colors.teal,
+        title: const Text('Génération de l\'emploi du temps'),
+        backgroundColor: Colors.teal.shade700,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Icon(Icons.schedule, size: 80, color: Colors.teal),
-            const SizedBox(height: 10),
-            const Text(
-              "Sélectionne une classe et génère ou importe son emploi du temps.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 20),
-            Card(
-              elevation: 3,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.teal.shade50,
+              Colors.white,
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // Header avec icône
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
                   children: [
-                    const Icon(Icons.class_, color: Colors.teal),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedClassId,
-                          isExpanded: true,
-                          hint: Text(_classes.isEmpty ? "Aucune classe trouvée" : "Choisir une classe"),
-                          items: _classes.map((classe) {
-                            return DropdownMenuItem<String>(
-                              value: classe['id'],
-                              child: Text(classe['nom']),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedClassId = value;
-                            });
-                          },
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.teal.shade100,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.schedule,
+                        size: 40,
+                        color: Colors.teal.shade700,
                       ),
                     ),
-                    IconButton(
-                      onPressed: _chargerClasses,
-                      icon: const Icon(Icons.refresh, color: Colors.teal),
-                      tooltip: 'Recharger les classes',
+                    const SizedBox(height: 16),
+                    Text(
+                      "Gestion des emplois du temps",
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Sélectionnez une classe et générez ou importez son emploi du temps",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            if (_classes.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Aucune classe disponible. Importez des données ou créez des classes.',
-                  style: TextStyle(color: Colors.orange[700], fontSize: 12),
-                  textAlign: TextAlign.center,
+              
+              const SizedBox(height: 24),
+
+              // Sélection de classe
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.1),
+                      spreadRadius: 1,
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _exportPdf,
-              icon: const Icon(Icons.picture_as_pdf),
-              label: const Text('Exporter PDF'),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.teal,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            _isLoading
-                ? const CircularProgressIndicator()
-                : Column(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _genererEmploi,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Générer automatiquement"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  onPressed: _importerEmploiDepuisJson,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text("Importer depuis JSON"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    // Demander confirmation avant de vider
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Confirmation'),
-                        content: const Text('Êtes-vous sûr de vouloir vider toute la base de données des emplois ?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('Annuler'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.class_, color: Colors.teal.shade600, size: 24),
+                        const SizedBox(width: 12),
+                        Text(
+                          "Sélection de classe",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.teal.shade700,
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                            child: const Text('Vider'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.grey.shade50,
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedClassId,
+                                isExpanded: true,
+                                hint: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    _classes.isEmpty ? "Aucune classe trouvée" : "Choisir une classe",
+                                    style: TextStyle(color: Colors.grey.shade600),
+                                  ),
+                                ),
+                                items: _classes.map((classe) {
+                                  return DropdownMenuItem<String>(
+                                    value: classe['id'],
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: Text(
+                                        classe['nom'],
+                                        style: const TextStyle(fontSize: 16),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedClassId = value;
+                                  });
+                                },
+                              ),
+                            ),
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: IconButton(
+                            onPressed: _chargerClasses,
+                            icon: Icon(Icons.refresh, color: Colors.teal.shade700),
+                            tooltip: 'Recharger les classes',
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_classes.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Aucune classe disponible. Ajoutez des classes via le menu.',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    );
-                    
-                    if (confirmed != true) return;
-                    
-                    setState(() {
-                      _isLoading = true;
-                      _message = null;
-                      emplois = {};
-                    });
-                    try {
-                      // Vider tous les emplois en utilisant DELETE
-                      await ApiService.deleteAllEmplois();
-                      await _chargerClasses();
-                      setState(() {
-                        _message = "🗑️ Base de données vidée";
-                      });
-                    } catch (e) {
-                      setState(() {
-                        _message = "❌ Erreur: $e";
-                      });
-                    } finally {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.clear_all),
-                  label: const Text("Vider la base"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    textStyle: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (_message != null)
-              Text(
-                _message!,
-                style: TextStyle(
-                  color: _message!.startsWith("✅") ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.bold,
+                  ],
                 ),
               ),
-            const SizedBox(height: 10),
-            if (emplois.isNotEmpty)
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.only(top: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: EmploiTable(emploiData: emplois),
+
+              const SizedBox(height: 24),
+
+              // Boutons d'action
+              if (_isLoading)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const CircularProgressIndicator(color: Colors.teal),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Traitement en cours...",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        "Actions",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 16), // Réduit de 20 à 16
+                      
+                      // Bouton Export PDF
+                      _buildActionButton(
+                        onPressed: _exportPdf,
+                        icon: Icons.picture_as_pdf,
+                        label: "Exporter PDF",
+                        color: Colors.blue.shade600,
+                        gradient: [Colors.blue.shade500, Colors.blue.shade600],
+                      ),
+                      const SizedBox(height: 8), // Réduit de 12 à 8
+                      
+                      // Bouton Générer automatiquement
+                      _buildActionButton(
+                        onPressed: _genererEmploi,
+                        icon: Icons.auto_awesome,
+                        label: "Générer automatiquement",
+                        color: Colors.teal.shade600,
+                        gradient: [Colors.teal.shade500, Colors.teal.shade600],
+                      ),
+                      const SizedBox(height: 8), // Réduit de 12 à 8
+                      
+                      // Bouton Importer depuis JSON
+                      _buildActionButton(
+                        onPressed: _importerEmploiDepuisJson,
+                        icon: Icons.upload_file,
+                        label: "Importer depuis JSON",
+                        color: Colors.deepPurple.shade600,
+                        gradient: [Colors.deepPurple.shade500, Colors.deepPurple.shade600],
+                      ),
+                      const SizedBox(height: 8), // Réduit de 12 à 8
+                      
+                      // Bouton Vider la base
+                      _buildActionButton(
+                        onPressed: _viderBaseDeDonnees,
+                        icon: Icons.clear_all,
+                        label: "Vider la base",
+                        color: Colors.red.shade600,
+                        gradient: [Colors.red.shade500, Colors.red.shade600],
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
+              // Message de statut
+              if (_message != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _message!.startsWith("✅") ? Colors.green.shade50 : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _message!.startsWith("✅") ? Colors.green.shade200 : Colors.red.shade200,
                     ),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _message!.startsWith("✅") ? Icons.check_circle : Icons.error,
+                        color: _message!.startsWith("✅") ? Colors.green.shade700 : Colors.red.shade700,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _message!,
+                          style: TextStyle(
+                            color: _message!.startsWith("✅") ? Colors.green.shade700 : Colors.red.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+
+              const SizedBox(height: 20),
+
+              // Affichage de l'emploi
+              if (emplois.isNotEmpty)
+                Container(
+                  height: 400, // Hauteur fixe pour éviter l'overflow
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            topRight: Radius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.table_chart, color: Colors.teal.shade700),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Emploi du temps",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.teal.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16.0),
+                          child: EmploiTable(emploiData: emplois),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    required Color color,
+    required List<Color> gradient,
+  }) {
+    return Container(
+      height: 42, // Augmenté de 36 à 42
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10), // Augmenté de 8 à 10
+        gradient: LinearGradient(colors: gradient),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.4), // Augmenté de 0.3 à 0.4 pour plus de visibilité
+            spreadRadius: 1,
+            blurRadius: 6, // Augmenté de 4 à 6
+            offset: const Offset(0, 3), // Augmenté de 2 à 3
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10), // Augmenté de 8 à 10
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 20), // Augmenté de 18 à 20
+            const SizedBox(width: 8), // Augmenté de 6 à 8
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13, // Augmenté de 12 à 13
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
+            ),
           ],
         ),
       ),

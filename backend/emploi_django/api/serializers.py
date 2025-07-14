@@ -24,7 +24,13 @@ class SalleSerializer(serializers.ModelSerializer):
 class ModuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Module
-        fields = '__all__'
+        fields = ['id', 'nom', 'volume_horaire', 'prof', 'classe', 'jours', 'jour', 'heure', 'salle']
+        # Champs optionnels - ajoutés progressivement
+        extra_kwargs = {
+            'jour': {'required': False},
+            'heure': {'required': False},
+            'salle': {'required': False},
+        }
 
 class ProfesseurSerializer(serializers.ModelSerializer):
     class Meta:
