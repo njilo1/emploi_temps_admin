@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../pages/entity_list_page.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AddSalleForm extends StatefulWidget {
   const AddSalleForm({Key? key}) : super(key: key);
@@ -24,9 +26,29 @@ class _AddSalleFormState extends State<AddSalleForm> {
 
       try {
         await ApiService.addSalle(data);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Salle ajoutée")));
-        _formKey.currentState!.reset();
-        setState(() => _disponible = true);
+        if (!mounted) return;
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          viewButtonText: 'Voir la liste des salles',
+          addButtonText: 'Ajouter une nouvelle salle',
+          onViewList: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EntityListPage(
+                  endpoint: 'salles/',
+                  fieldsToShow: ['nom', 'capacité', 'disponible'],
+                ),
+              ),
+            );
+          },
+          onAddNew: () {
+            _formKey.currentState!.reset();
+            _nomController.clear();
+            _capaciteController.clear();
+            setState(() => _disponible = true);
+          },
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
       }

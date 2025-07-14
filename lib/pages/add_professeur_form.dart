@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AddProfesseurForm extends StatefulWidget {
   const AddProfesseurForm({Key? key}) : super(key: key);
@@ -22,8 +24,28 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
 
       try {
         await ApiService.addProfesseur(data);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Professeur ajouté")));
-        _formKey.currentState!.reset();
+        if (!mounted) return;
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          viewButtonText: 'Voir la liste des professeurs',
+          addButtonText: 'Ajouter un nouveau professeur',
+          onViewList: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EntityListPage(
+                  endpoint: 'professeurs/',
+                  fieldsToShow: ['nom'],
+                ),
+              ),
+            );
+          },
+          onAddNew: () {
+            _formKey.currentState!.reset();
+            _nomController.clear();
+            _dispoController.clear();
+          },
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
       }

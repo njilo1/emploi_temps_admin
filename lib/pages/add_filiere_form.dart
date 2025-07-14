@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'entity_list_page.dart';
+import '../widgets/confirmation_dialog.dart';
 
 class AddFiliereForm extends StatefulWidget {
   const AddFiliereForm({Key? key}) : super(key: key);
@@ -29,12 +31,28 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
 
       try {
         await ApiService.addFiliere(data);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Filière ajoutée avec succès')),
+        if (!mounted) return;
+        await ConfirmationDialog.showSuccessDialog(
+          context: context,
+          viewButtonText: 'Voir la liste des filières',
+          addButtonText: 'Ajouter une nouvelle filière',
+          onViewList: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const EntityListPage(
+                  endpoint: 'filieres/',
+                  fieldsToShow: ['nom', 'departement'],
+                ),
+              ),
+            );
+          },
+          onAddNew: () {
+            _formKey.currentState!.reset();
+            _nomController.clear();
+            _departementController.clear();
+          },
         );
-        _formKey.currentState!.reset();
-        _nomController.clear();
-        _departementController.clear();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur : $e')),
