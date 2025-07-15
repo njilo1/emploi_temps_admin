@@ -10,83 +10,108 @@ class EmploiGlobalPage extends StatefulWidget {
 }
 
 class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
-  List<String> _filieres = [];
-  String? _filiere;
-  Map<String, Map<String, Map<String, String>>> _emploiParClasse = {};
+  List<dynamic> _departements = [];
+  final Set<int> _selection = {};
+  Map<String, dynamic>? _resultat;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _chargerFilieres();
+    _chargerDepartements();
   }
 
-  Future<void> _chargerFilieres() async {
-    final classes = await ApiService.fetchClasses();
-    final fil = classes.map((c) => c['filiere'] as String?).whereType<String>().toSet().toList();
+  Future<void> _chargerDepartements() async {
+    final data = await ApiService.fetchDepartements();
     setState(() {
-      _filieres = fil;
-      if (fil.isNotEmpty) _filiere = fil.first;
+      _departements = data;
     });
-    if (fil.isNotEmpty) {
-      _chargerEmplois();
-    }
   }
 
-  Future<void> _chargerEmplois() async {
-    if (_filiere == null) return;
-    final classes = await ApiService.fetchClasses();
-    final filtered = classes.where((c) => c['filiere'] == _filiere).toList();
-    Map<String, Map<String, Map<String, String>>> data = {};
-    for (final c in filtered) {
-      final emplois = await ApiService.fetchEmploiParClasse(c['id'].toString());
-      data[c['nom']] = emplois;
+  Future<void> _generer() async {
+    if (_selection.isEmpty) return;
+    setState(() => _loading = true);
+    try {
+      final res = await ApiService.generateEmploisParDepartements(_selection.toList());
+      setState(() {
+        _resultat = res;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e')),
+        );
+      }
+    } finally {
+      setState(() => _loading = false);
     }
-    setState(() {
-      _emploiParClasse = data;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Emplois par Departement')),
+      appBar: AppBar(title: const Text('Emploi global')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButton<String>(
-              value: _filiere,
-              items: _filieres
-                  .map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                  .toList(),
-              onChanged: (val) {
-                setState(() {
-                  _filiere = val;
-                });
-                _chargerEmplois();
-              },
+            const Text('Choisissez les départements à générer:'),
+            ..._departements.map((d) {
+              final id = d['id'] as int;
+              return CheckboxListTile(
+                value: _selection.contains(id),
+                title: Text(d['nom'] ?? ''),
+                onChanged: (v) {
+                  setState(() {
+                    if (v == true) {
+                      _selection.add(id);
+                    } else {
+                      _selection.remove(id);
+                    }
+                  });
+                },
+              );
+            }),
+            ElevatedButton(
+              onPressed: _loading ? null : _generer,
+              child: const Text('Générer automatiquement'),
             ),
             const SizedBox(height: 20),
-            Expanded(
-              child: ListView(
-                children: _emploiParClasse.entries.map((entry) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          EmploiTable(emploiData: entry.value),
-                        ],
+            if (_loading) const CircularProgressIndicator(),
+            if (_resultat != null)
+              Expanded(
+                child: ListView(
+                  children: (_resultat!['departements'] as List<dynamic>).map((dep) {
+                    final classes = dep['classes'] as List<dynamic>;
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(dep['nom'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ...classes.map((cl) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 8),
+                                  Text(cl['nom'] ?? '', style: const TextStyle(fontSize: 16)),
+                                  EmploiTable(
+                                    emploiData: (cl['emplois'] as Map<String, dynamic>)
+                                        .map((k, v) => MapEntry(k, Map<String, String>.from(v))),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
           ],
         ),
       ),
