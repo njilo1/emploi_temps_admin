@@ -31,8 +31,28 @@ def clean_text(text):
     result = text
     for old, new in replacements.items():
         result = result.replace(old, new)
-    
+
     return result
+
+
+def build_emploi_data(emplois):
+    """Retourne la structure d'emploi du temps pour une liste d'emplois."""
+    tranches_horaires = [
+        '07H30 - 10H00',
+        '10H15 - 12H45',
+        '13H00 - 15H30',
+        '15H45 - 18H15',
+    ]
+    jours_semaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+    data = {jour: {heure: '' for heure in tranches_horaires} for jour in jours_semaine}
+
+    for emploi in emplois:
+        libelle = f"{clean_text(emploi.module.nom)} – {clean_text(emploi.salle.nom)} – {clean_text(emploi.prof.nom)}"
+        if emploi.jour in data and emploi.heure in data[emploi.jour]:
+            data[emploi.jour][emploi.heure] = libelle
+
+    return data
 
 # ======== CRUD ViewSets ========
 class ClasseViewSet(viewsets.ModelViewSet):
@@ -66,6 +86,12 @@ class EmploiViewSet(viewsets.ModelViewSet):
 # ======== Route POST /emplois/generate/ ========
 @api_view(['POST'])
 def generer_emplois(request):
+    """Génération automatique des emplois du temps.
+    Si le corps de la requête contient un champ "departements" (liste d'IDs),
+    seules les classes rattachées à ces départements seront traitées.
+    Le résultat est retourné sous forme de JSON hiérarchique par département
+    puis par classe.
+    """
     try:
         tranches_horaires = [
             '07H30 - 10H00',
@@ -74,11 +100,23 @@ def generer_emplois(request):
             '15H45 - 18H15',
         ]
 
-        # Vider tous les emplois existants
-        Emploi.objects.all().delete()
-        print("🗑️ Tous les emplois existants supprimés")
+        departement_ids = request.data.get('departements')
 
-        classes = Classe.objects.all()
+        if departement_ids:
+            Emploi.objects.filter(
+                classe__filiere__departement_id__in=departement_ids
+            ).delete()
+            classes = Classe.objects.filter(
+                filiere__departement_id__in=departement_ids
+            )
+            print(
+                f"📌 Génération demandée pour les départements {departement_ids}"
+            )
+        else:
+            Emploi.objects.all().delete()
+            classes = Classe.objects.all()
+            print("📌 Génération pour toutes les classes")
+
         salles = Salle.objects.filter(disponible=True)
         
         if not classes.exists():
@@ -87,8 +125,9 @@ def generer_emplois(request):
         if not salles.exists():
             return Response({"error": "Aucune salle disponible trouvée. Ajoutez d'abord des salles."}, status=400)
 
-        salle_occupe = {}
-        prof_occupe = {}
+        # Occupation des salles et profs par créneau "jour-heure"
+        salle_occupe = {}  # {cle: set(salle_id)}
+        prof_occupe = {}   # {cle: {prof_id: {'module': module.nom, 'salle': salle_id}}}
         emplois_crees = 0
 
         print(f"📚 Génération pour {classes.count()} classes")
@@ -143,55 +182,84 @@ def generer_emplois(request):
                 # Utiliser la salle spécifique du module si elle existe (avec gestion d'erreur)
                 try:
                     salle_module = getattr(module, 'salle', None)
-                    if salle_module:
+                    if salle_module and cle not in salle_occupe.get(cle, set()):
                         salle_id = salle_module.id
-                        print(f"📝 Module {module.nom}: utilisation de la salle spécifique: {salle_module.nom}")
+                        print(
+                            f"📝 Module {module.nom}: utilisation de la salle spécifique: {salle_module.nom}"
+                        )
                     else:
-                        # Chercher une salle disponible si aucune salle spécifique
                         salle_id = None
                         for salle in salles:
-                            if (salle.capacite >= classe.effectif and 
-                                cle not in salle_occupe.get(salle.id, set())):
+                            if (
+                                salle.capacite >= classe.effectif
+                                and salle.id not in salle_occupe.get(cle, set())
+                            ):
                                 salle_id = salle.id
-                                salle_occupe.setdefault(salle.id, set()).add(cle)
-                                print(f"📝 Module {module.nom}: salle assignée: {salle.nom}")
                                 break
-                except:
-                    # Si le champ salle n'existe pas encore, chercher une salle disponible
+                except Exception:
                     salle_id = None
                     for salle in salles:
-                        if (salle.capacite >= classe.effectif and 
-                            cle not in salle_occupe.get(salle.id, set())):
+                        if (
+                            salle.capacite >= classe.effectif
+                            and salle.id not in salle_occupe.get(cle, set())
+                        ):
                             salle_id = salle.id
-                            salle_occupe.setdefault(salle.id, set()).add(cle)
-                            print(f"📝 Module {module.nom}: salle assignée: {salle.nom}")
                             break
 
-                # Vérifier que le prof n'est pas occupé
-                prof_id = prof.id
-                if salle_id and cle not in prof_occupe.get(prof_id, set()):
-                    prof_occupe.setdefault(prof_id, set()).add(cle)
+                # Vérifier que la salle et le professeur sont disponibles
+                if salle_id is None:
+                    print(f"❌ Pas de salle disponible pour {module.nom} {cle}")
+                    continue
 
-                    # Créer l'emploi avec les informations spécifiques du module
-                    Emploi.objects.create(
-                        classe=classe,
-                        module=module,
-                        prof=prof,
-                        salle=Salle.objects.get(id=salle_id),
-                        jour=jour_module,
-                        heure=heure_module
-                    )
-                    emplois_crees += 1
-                    
-                    print(f"✅ Emploi créé: {jour_module} {heure_module} - {module.nom} - {prof.nom} - Salle: {Salle.objects.get(id=salle_id).nom}")
-                else:
-                    print(f"⚠️ Créneau {jour_module} {heure_module} non disponible pour {module.nom}")
+                if salle_id in salle_occupe.get(cle, set()):
+                    print(f"❌ Salle déjà prise pour {cle} : {salle_id}")
+                    continue
+
+                prof_info = prof_occupe.get(cle, {}).get(prof.id)
+                if prof_info and not (
+                    prof_info['module'] == module.nom and prof_info['salle'] == salle_id
+                ):
+                    print(f"❌ Prof {prof.nom} occupé à {cle}")
+                    continue
+
+                salle_occupe.setdefault(cle, set()).add(salle_id)
+                prof_occupe.setdefault(cle, {})[prof.id] = {
+                    'module': module.nom,
+                    'salle': salle_id,
+                }
+
+                Emploi.objects.create(
+                    classe=classe,
+                    module=module,
+                    prof=prof,
+                    salle=Salle.objects.get(id=salle_id),
+                    jour=jour_module,
+                    heure=heure_module,
+                )
+                emplois_crees += 1
+
+                print(
+                    f"✅ Emploi créé: {jour_module} {heure_module} - {module.nom} - {prof.nom} - Salle: {Salle.objects.get(id=salle_id).nom}"
+                )
 
         print(f"🎉 Génération terminée: {emplois_crees} emplois créés")
-        return Response({
-            "message": f"Emplois générés avec succès: {emplois_crees} emplois créés",
-            "emplois_crees": emplois_crees
-        }, status=200)
+
+        resultat = {"departements": []}
+        departements = (
+            Departement.objects.filter(id__in=departement_ids)
+            if departement_ids
+            else Departement.objects.all()
+        )
+        for dep in departements:
+            classes_dep = Classe.objects.filter(filiere__departement=dep)
+            classes_data = []
+            for c in classes_dep:
+                emplois = Emploi.objects.filter(classe=c)
+                classes_data.append({"nom": c.nom, "emplois": build_emploi_data(emplois)})
+            if classes_data:
+                resultat["departements"].append({"nom": dep.nom, "classes": classes_data})
+
+        return Response(resultat, status=200)
         
     except Exception as e:
         import traceback
