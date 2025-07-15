@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'entity_list_page.dart';
-import '../widgets/confirmation_dialog.dart';
 
 class AddProfesseurForm extends StatefulWidget {
   const AddProfesseurForm({Key? key}) : super(key: key);
@@ -14,41 +13,71 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _dispoController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _dispoController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        'nom': _nomController.text.trim(),
-        'disponibilites': _dispoController.text.trim(),
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        await ApiService.addProfesseur(data);
-        if (!mounted) return;
-        await ConfirmationDialog.showSuccessDialog(
-          context: context,
-          viewButtonText: 'Voir la liste des professeurs',
-          addButtonText: 'Ajouter un nouveau professeur',
-          onViewList: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const EntityListPage(
-                  endpoint: 'professeurs/',
-                  fieldsToShow: ['nom'],
-                ),
-              ),
-            );
-          },
-          onAddNew: () {
-            _formKey.currentState!.reset();
-            _nomController.clear();
-            _dispoController.clear();
-          },
+    setState(() => _isLoading = true);
+
+    final data = {
+      'nom': _nomController.text.trim(),
+      'disponibilites': _dispoController.text.trim(),
+    };
+
+    try {
+      await ApiService.addProfesseur(data);
+      if (!mounted) return;
+
+      // ✅ Popup avec deux boutons après succès
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("✅ Succès"),
+          content: const Text("Professeur enregistré avec succès."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Fermer le dialogue
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EntityListPage(
+                      endpoint: 'professeurs/',
+                      fieldsToShow: ['nom', 'disponibilites'],
+                    ),
+                  ),
+                );
+              },
+              child: const Text("Voir la liste"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Fermer le dialogue
+                _formKey.currentState!.reset();
+                _nomController.clear();
+                _dispoController.clear();
+              },
+              child: const Text("Ajouter un autre"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("❌ Erreur : $e")),
         );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
       }
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -62,7 +91,10 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
           key: _formKey,
           child: Column(
             children: [
-              const Text("Ajouter un professeur", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text(
+                "Ajouter un professeur",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nomController,
@@ -76,18 +108,15 @@ class _AddProfesseurFormState extends State<AddProfesseurForm> {
                 validator: (v) => v == null || v.isEmpty ? "Champ requis" : null,
               ),
               const SizedBox(height: 24),
-              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _submit,
+                icon: const Icon(Icons.save),
+                label: const Text("Ajouter"),
+              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _dispoController.dispose();
-    super.dispose();
   }
 }

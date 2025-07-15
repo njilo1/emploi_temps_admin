@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'entity_list_page.dart';
-import '../widgets/confirmation_dialog.dart';
 
 class AddFiliereForm extends StatefulWidget {
   const AddFiliereForm({Key? key}) : super(key: key);
@@ -14,51 +13,69 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
   final _formKey = GlobalKey<FormState>();
   final _nomController = TextEditingController();
   final _departementController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final data = {
+      "nom": _nomController.text.trim(),
+      "departement": _departementController.text.trim(),
+    };
+
+    try {
+      await ApiService.addFiliere(data);
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("✅ Succès"),
+          content: const Text("Enregistrement effectué avec succès."),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // ferme le dialogue
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const EntityListPage(
+                      endpoint: 'filieres/',
+                      fieldsToShow: ['nom', 'departement'],
+                    ),
+                  ),
+                );
+              },
+              child: const Text("Voir la liste"),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // ferme le dialogue
+                _formKey.currentState!.reset();
+                _nomController.clear();
+                _departementController.clear();
+              },
+              child: const Text("Ajouter un autre"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Erreur : $e')),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   void dispose() {
     _nomController.dispose();
     _departementController.dispose();
     super.dispose();
-  }
-
-  Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        "nom": _nomController.text.trim(),
-        "departement": _departementController.text.trim(),
-      };
-
-      try {
-        await ApiService.addFiliere(data);
-        if (!mounted) return;
-        await ConfirmationDialog.showSuccessDialog(
-          context: context,
-          viewButtonText: 'Voir la liste des filières',
-          addButtonText: 'Ajouter une nouvelle filière',
-          onViewList: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const EntityListPage(
-                  endpoint: 'filieres/',
-                  fieldsToShow: ['nom', 'departement'],
-                ),
-              ),
-            );
-          },
-          onAddNew: () {
-            _formKey.currentState!.reset();
-            _nomController.clear();
-            _departementController.clear();
-          },
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur : $e')),
-        );
-      }
-    }
   }
 
   @override
@@ -96,9 +113,10 @@ class _AddFiliereFormState extends State<AddFiliereForm> {
                 validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _submitForm,
-                child: const Text('Enregistrer'),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _submitForm,
+                icon: const Icon(Icons.save),
+                label: const Text('Enregistrer'),
               ),
             ],
           ),

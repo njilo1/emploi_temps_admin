@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../pages/entity_list_page.dart';
-import '../widgets/confirmation_dialog.dart';
 
 class AddSalleForm extends StatefulWidget {
   const AddSalleForm({Key? key}) : super(key: key);
@@ -15,44 +14,69 @@ class _AddSalleFormState extends State<AddSalleForm> {
   final _nomController = TextEditingController();
   final _capaciteController = TextEditingController();
   bool _disponible = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nomController.dispose();
+    _capaciteController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
-    if (_formKey.currentState!.validate()) {
-      final data = {
-        'nom': _nomController.text.trim(),
-        'capacite': int.tryParse(_capaciteController.text.trim()) ?? 0,
-        'disponible': _disponible,
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      try {
-        await ApiService.addSalle(data);
-        if (!mounted) return;
-        await ConfirmationDialog.showSuccessDialog(
-          context: context,
-          viewButtonText: 'Voir la liste des salles',
-          addButtonText: 'Ajouter une nouvelle salle',
-          onViewList: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const EntityListPage(
-                  endpoint: 'salles/',
-                  fieldsToShow: ['nom', 'capacité', 'disponible'],
-                ),
-              ),
-            );
-          },
-          onAddNew: () {
-            _formKey.currentState!.reset();
-            _nomController.clear();
-            _capaciteController.clear();
-            setState(() => _disponible = true);
-          },
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Erreur: $e")));
-      }
+    setState(() => _isLoading = true);
+
+    final data = {
+      'nom': _nomController.text.trim(),
+      'capacite': int.tryParse(_capaciteController.text.trim()) ?? 0,
+      'disponible': _disponible,
+    };
+
+    try {
+      await ApiService.addSalle(data);
+      if (!mounted) return;
+
+      // Affiche le popup de succès
+      _showSuccessDialog();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("❌ Erreur : $e")));
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Empêche la fermeture en cliquant à l'extérieur
+      builder: (context) => AlertDialog(
+        title: const Text("✅ Succès"),
+        content: const Text("Salle enregistrée avec succès."),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Ferme le popup
+              // Redirige vers la liste des salles
+              Navigator.pushNamed(context, '/salles');
+            },
+            child: const Text("Voir la liste salle"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Ferme le popup
+              // Réinitialise le formulaire
+              _formKey.currentState!.reset();
+              _nomController.clear();
+              _capaciteController.clear();
+              setState(() => _disponible = true);
+            },
+            child: const Text("Ajouter une autre salle"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -65,7 +89,10 @@ class _AddSalleFormState extends State<AddSalleForm> {
           key: _formKey,
           child: Column(
             children: [
-              const Text("Ajouter une salle", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text(
+                "Ajouter une salle",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nomController,
@@ -84,18 +111,16 @@ class _AddSalleFormState extends State<AddSalleForm> {
                 title: const Text("Salle disponible"),
                 onChanged: (v) => setState(() => _disponible = v),
               ),
-              ElevatedButton(onPressed: _submit, child: const Text("Ajouter")),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : _submit,
+                icon: const Icon(Icons.save),
+                label: const Text("Ajouter"),
+              ),
             ],
           ),
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nomController.dispose();
-    _capaciteController.dispose();
-    super.dispose();
   }
 }

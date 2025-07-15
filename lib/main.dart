@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'pages/dashboard.dart';
+import 'pages/entity_list_page.dart'; // <-- Assure-toi que ce chemin est correct
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +15,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Gestion Emplois du Temps',
       theme: ThemeData(primarySwatch: Colors.teal),
-      home: const DashboardPage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const DashboardPage(),
+        '/salles': (context) => const EntityListPage(
+          endpoint: 'salles/',
+          fieldsToShow: ['nom', 'capacite', 'disponible'],
+        ),
+        // Tu peux ajouter d'autres routes ici si besoin
+      },
     );
   }
 }

@@ -17,6 +17,7 @@ class _AddClasseFormState extends State<AddClasseForm> {
   int? _selectedFiliereId;
 
   List<dynamic> _filieres = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -29,6 +30,54 @@ class _AddClasseFormState extends State<AddClasseForm> {
     setState(() {
       _filieres = filieres;
     });
+  }
+
+  Future<void> saveClasse() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    final data = {
+      'nom': _nomController.text.trim(),
+      'effectif': int.parse(_effectifController.text.trim()),
+      'filiere': _selectedFiliereId,
+    };
+
+    try {
+      await ApiService.addClasse(data);
+
+      if (!mounted) return;
+      await ConfirmationDialog.showSuccessDialog(
+        context: context,
+        viewButtonText: 'Voir la liste des classes',
+        addButtonText: 'Ajouter une nouvelle classe',
+        onViewList: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const EntityListPage(
+                endpoint: 'classes/',
+                fieldsToShow: ['nom', 'filiere', 'effectif'],
+              ),
+            ),
+          );
+        },
+        onAddNew: () {
+          _formKey.currentState!.reset();
+          _nomController.clear();
+          _effectifController.clear();
+          setState(() {
+            _selectedFiliereId = null;
+          });
+        },
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Erreur: $e")),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -48,19 +97,16 @@ class _AddClasseFormState extends State<AddClasseForm> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 20),
-
-              // Nom de la classe
               TextFormField(
                 controller: _nomController,
                 decoration: const InputDecoration(
                   labelText: 'Nom de la classe',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
+                validator: (value) =>
+                value!.isEmpty ? 'Champ obligatoire' : null,
               ),
               const SizedBox(height: 15),
-
-              // Effectif
               TextFormField(
                 controller: _effectifController,
                 keyboardType: TextInputType.number,
@@ -68,11 +114,10 @@ class _AddClasseFormState extends State<AddClasseForm> {
                   labelText: 'Effectif',
                   border: OutlineInputBorder(),
                 ),
-                validator: (value) => value!.isEmpty ? 'Champ obligatoire' : null,
+                validator: (value) =>
+                value!.isEmpty ? 'Champ obligatoire' : null,
               ),
               const SizedBox(height: 15),
-
-              // Liste des filières
               DropdownButtonFormField<int>(
                 value: _selectedFiliereId,
                 items: _filieres.map((filiere) {
@@ -93,49 +138,11 @@ class _AddClasseFormState extends State<AddClasseForm> {
                 validator: (value) =>
                 value == null ? 'Veuillez choisir une filière' : null,
               ),
-
               const SizedBox(height: 20),
-
-              // Bouton Enregistrer
-              ElevatedButton(
-                onPressed: () async {
-                  if (_formKey.currentState!.validate()) {
-                    final data = {
-                      'nom': _nomController.text.trim(),
-                      'effectif': int.parse(_effectifController.text.trim()),
-                      'filiere': _selectedFiliereId,
-                    };
-
-                    await ApiService.addClasse(data);
-
-                    if (!mounted) return;
-                    await ConfirmationDialog.showSuccessDialog(
-                      context: context,
-                      viewButtonText: 'Voir la liste des classes',
-                      addButtonText: 'Ajouter une nouvelle classe',
-                      onViewList: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const EntityListPage(
-                              endpoint: 'classes/',
-                              fieldsToShow: ['nom', 'filiere', 'effectif'],
-                            ),
-                          ),
-                        );
-                      },
-                      onAddNew: () {
-                        _formKey.currentState!.reset();
-                        _nomController.clear();
-                        _effectifController.clear();
-                        setState(() {
-                          _selectedFiliereId = null;
-                        });
-                      },
-                    );
-                  }
-                },
-                child: const Text('Enregistrer'),
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : saveClasse,
+                icon: const Icon(Icons.save),
+                label: const Text('Enregistrer'),
               ),
             ],
           ),
