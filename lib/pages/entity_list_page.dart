@@ -40,9 +40,23 @@ class _EntityListPageState extends State<EntityListPage> {
     }
   }
 
-  Future<void> _deleteEntity(int id) async {
-    await ApiService.deleteData('${widget.endpoint}$id/');
-    _loadData();
+  Future<void> _deleteEntity(dynamic id) async {
+    try {
+      await ApiService.deleteData('${widget.endpoint}$id/');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Élément supprimé')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    } finally {
+      await _loadData();
+    }
   }
 
   @override
@@ -88,9 +102,6 @@ class _EntityListPageState extends State<EntityListPage> {
 
                   if (confirm == true) {
                     await _deleteEntity(item['id']);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Élément supprimé')),
-                    );
                   }
                 },
               ),
