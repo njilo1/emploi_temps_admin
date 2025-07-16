@@ -41,8 +41,21 @@ class _EntityListPageState extends State<EntityListPage> {
   }
 
   Future<void> _deleteEntity(int id) async {
-    await ApiService.deleteData('${widget.endpoint}$id/');
-    _loadData();
+    try {
+      await ApiService.deleteData('${widget.endpoint}$id/');
+      await _loadData(); // 🔥 Recharge la liste après suppression
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Élément supprimé')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur suppression : $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -52,7 +65,16 @@ class _EntityListPageState extends State<EntityListPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-          ? const Center(child: Text('Aucun élément trouvé'))
+          ? Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.outline),
+            const SizedBox(height: 12),
+            const Text('Aucun élément trouvé'),
+          ],
+        ),
+      )
           : ListView.builder(
         itemCount: _items.length,
         itemBuilder: (context, index) {
@@ -71,7 +93,7 @@ class _EntityListPageState extends State<EntityListPage> {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (_) => AlertDialog(
-                      title: const Text('Confirmation'),
+                      title: const Text('Confirmer'),
                       content: const Text('Supprimer cet élément ?'),
                       actions: [
                         TextButton(
@@ -88,9 +110,6 @@ class _EntityListPageState extends State<EntityListPage> {
 
                   if (confirm == true) {
                     await _deleteEntity(item['id']);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Élément supprimé')),
-                    );
                   }
                 },
               ),

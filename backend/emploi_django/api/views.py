@@ -15,7 +15,7 @@ def clean_text(text):
     """Nettoie le texte en remplaçant les caractères spéciaux"""
     if not text:
         return text
-    
+
     # Remplacer les caractères spéciaux courants
     replacements = {
         'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
@@ -27,7 +27,7 @@ def clean_text(text):
         '–': '-', '—': '-',  # Tirets
         "'": "'", '"': '"',  # Guillemets
     }
-    
+
     result = text
     for old, new in replacements.items():
         result = result.replace(old, new)
@@ -166,18 +166,18 @@ def generer_emplois(request):
                 heure = ref.heure or tranches_horaires[0]
                 cle = f"{jour}-{heure}"
                 salle_id = None
-                
+
                 # Trouver une salle avec assez de place pour le plus grand groupe
                 max_effectif = max(mod.classe.effectif for mod in groupe)
                 for salle in salles:
                     if salle.capacite >= max_effectif and salle.id not in salle_occupe.get(cle, set()):
                         salle_id = salle.id
                         break
-                
+
                 if not salle_id:
                     print(f"❌ Pas de salle assez grande pour le groupe {ref.nom}")
                     continue
-                    
+
                 for mod in groupe:
                     if planifier(mod, mod.classe, jour, heure, salle_id):
                         emplois_crees += 1
@@ -188,14 +188,14 @@ def generer_emplois(request):
                 classe = module.classe
                 jour_module = module.jour or (module.get_jours_list()[0] if hasattr(module, 'get_jours_list') else 'Lundi')
                 heure_module = module.heure or tranches_horaires[0]
-                
+
                 # Vérifier que le jour est valide
                 if jour_module not in ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']:
                     jour_module = 'Lundi'
-                
+
                 cle = f"{jour_module}-{heure_module}"
                 salle_id = None
-                
+
                 # Essayer d'utiliser la salle préférée du module
                 salle_pref = getattr(module, 'salle', None)
                 if salle_pref and salle_pref.id not in salle_occupe.get(cle, set()):
@@ -206,7 +206,7 @@ def generer_emplois(request):
                         if salle.capacite >= classe.effectif and salle.id not in salle_occupe.get(cle, set()):
                             salle_id = salle.id
                             break
-                
+
                 if salle_id and planifier(module, classe, jour_module, heure_module, salle_id):
                     emplois_crees += 1
 
@@ -218,14 +218,14 @@ def generer_emplois(request):
             for c in classes_dep:
                 emplois = Emploi.objects.filter(classe=c)
                 classes_data.append({
-                    "id": c.id, 
-                    "nom": c.nom, 
+                    "id": c.id,
+                    "nom": c.nom,
                     "emplois": build_emploi_data(emplois)
                 })
             if classes_data:
                 result["departements"].append({
-                    "id": dep.id, 
-                    "nom": dep.nom, 
+                    "id": dep.id,
+                    "nom": dep.nom,
                     "classes": classes_data
                 })
 
@@ -294,7 +294,7 @@ def emploi_par_classe(request, classe_id):
             module_nom = clean_text(emploi.module.nom)
             salle_nom = clean_text(emploi.salle.nom)
             prof_nom = clean_text(emploi.prof.nom)
-            
+
             # Format avec sauts de ligne pour un affichage plus propre
             libelle = f"{module_nom}\n{salle_nom}\n{prof_nom}"
 
@@ -328,9 +328,9 @@ def import_emplois(request):
             data = request.data
         else:
             data = request.data.get('emplois', [])
-        
+
         print(f"📥 Données reçues: {data}")  # Debug log
-        
+
         if not data:
             return Response({"error": "Aucune donnée à importer"}, status=400)
 
@@ -375,9 +375,9 @@ def import_emplois(request):
 
                     # Créer une filière par défaut si nécessaire
                     filiere, _ = Filiere.objects.get_or_create(nom="Générale")
-                    
+
                     classe, _ = Classe.objects.get_or_create(
-                        nom=clean_text(classe_nom), 
+                        nom=clean_text(classe_nom),
                         defaults={"effectif": 30, "filiere": filiere}
                     )
                     prof, _ = Professeur.objects.get_or_create(nom=clean_text(prof_nom))
@@ -404,7 +404,7 @@ def import_emplois(request):
                     heure=heure
                 )
                 emplois_crees += 1
-                
+
             except Exception as item_error:
                 print(f"❌ Erreur lors du traitement de l'item {item}: {item_error}")
                 continue
@@ -506,7 +506,7 @@ def parse_word_file(request):
                 )
 
         return Response({
-            'emplois': emplois, 
+            'emplois': emplois,
             'message': 'Données extraites et sauvegardées avec succès'
         }, status=200)
 
