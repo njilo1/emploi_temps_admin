@@ -93,6 +93,8 @@ def generer_emplois(request):
     puis par classe.
     """
     try:
+        from django.db import transaction
+
         tranches_horaires = [
             '07H30 - 10H00',
             '10H15 - 12H45',
@@ -101,170 +103,162 @@ def generer_emplois(request):
         ]
 
         departement_ids = request.data.get('departements')
-
-        if departement_ids:
+        if departement_ids is None:
+            # Compatibilité ancienne version : tout générer
+            departements = Departement.objects.all()
+            Emploi.objects.all().delete()
+            classes = Classe.objects.all()
+            print("📌 Génération pour toutes les classes")
+        else:
+            departements = Departement.objects.filter(id__in=departement_ids)
             Emploi.objects.filter(
                 classe__filiere__departement_id__in=departement_ids
             ).delete()
             classes = Classe.objects.filter(
                 filiere__departement_id__in=departement_ids
             )
-            print(
-                f"📌 Génération demandée pour les départements {departement_ids}"
-            )
-        else:
-            Emploi.objects.all().delete()
-            classes = Classe.objects.all()
-            print("📌 Génération pour toutes les classes")
+            print(f"📌 Génération demandée pour les départements {departement_ids}")
 
         salles = Salle.objects.filter(disponible=True)
-        
+
         if not classes.exists():
-            return Response({"error": "Aucune classe trouvée. Ajoutez d'abord des classes."}, status=400)
-        
+            return Response({"error": "Aucune classe trouvée."}, status=400)
         if not salles.exists():
-            return Response({"error": "Aucune salle disponible trouvée. Ajoutez d'abord des salles."}, status=400)
+            return Response({"error": "Aucune salle disponible."}, status=400)
 
         # Occupation des salles et profs par créneau "jour-heure"
         salle_occupe = {}  # {cle: set(salle_id)}
         prof_occupe = {}   # {cle: {prof_id: {'module': module.nom, 'salle': salle_id}}}
         emplois_crees = 0
 
-        print(f"📚 Génération pour {classes.count()} classes")
-        
-        for classe in classes:
-            print(f"🎓 Traitement de la classe: {classe.nom}")
-            
-            # Récupérer seulement les modules associés à cette classe
-            modules_classe = Module.objects.filter(classe=classe)
-            
-            if not modules_classe.exists():
-                print(f"⚠️ Aucun module trouvé pour la classe {classe.nom}")
-                continue
-                
-            print(f"📖 Modules pour {classe.nom}: {[m.nom for m in modules_classe]}")
+        with transaction.atomic():
+            # Détection des cours communs : même nom et même professeur
+            modules = Module.objects.filter(classe__in=classes)
+            common_keys = {}
+            for m in modules:
+                key = (m.nom, m.prof_id)
+                common_keys.setdefault(key, []).append(m)
 
-            for module in modules_classe:
-                prof = getattr(module, 'prof', None)
+            modules_communs = [mods for mods in common_keys.values() if len(mods) > 1]
+            modules_restants = [m for m in modules if all(m not in grp for grp in modules_communs)]
+
+            def planifier(module, classe, jour_module, heure_module, salle_id):
+                cle = f"{jour_module}-{heure_module}"
+                prof_id = module.prof_id
+                if salle_id and salle_id not in salle_occupe.get(cle, set()) and prof_id not in prof_occupe.get(cle, set()):
+                    salle_occupe.setdefault(cle, set()).add(salle_id)
+                    prof_occupe.setdefault(cle, set()).add(prof_id)
+                    Emploi.objects.create(
+                        classe=classe,
+                        module=module,
+                        prof=module.prof,
+                        salle=Salle.objects.get(id=salle_id),
+                        jour=jour_module,
+                        heure=heure_module,
+                    )
+                    return True
+                return False
+
+            # Planifier d'abord les cours communs
+            for groupe in modules_communs:
+                ref = groupe[0]
+                jour = ref.jour or (ref.get_jours_list()[0] if hasattr(ref, 'get_jours_list') else 'Lundi')
+                heure = ref.heure or tranches_horaires[0]
+                cle = f"{jour}-{heure}"
+                salle_id = None
                 
-                if not prof:
-                    print(f"⚠️ Module {module.nom} sans professeur, ignoré")
+                # Trouver une salle avec assez de place pour le plus grand groupe
+                max_effectif = max(mod.classe.effectif for mod in groupe)
+                for salle in salles:
+                    if salle.capacite >= max_effectif and salle.id not in salle_occupe.get(cle, set()):
+                        salle_id = salle.id
+                        break
+                
+                if not salle_id:
+                    print(f"❌ Pas de salle assez grande pour le groupe {ref.nom}")
                     continue
+                    
+                for mod in groupe:
+                    if planifier(mod, mod.classe, jour, heure, salle_id):
+                        emplois_crees += 1
+                        print(f"✅ Cours commun créé: {mod.nom} - {mod.classe.nom}")
 
-                # Récupérer le jour et l'heure spécifiques du module (avec gestion d'erreur)
-                try:
-                    jour_module = getattr(module, 'jour', None)
-                    heure_module = getattr(module, 'heure', None)
-                except:
-                    # Si les champs n'existent pas encore, utiliser les valeurs par défaut
-                    jour_module = None
-                    heure_module = None
+            # Puis les autres modules
+            for module in modules_restants:
+                classe = module.classe
+                jour_module = module.jour or (module.get_jours_list()[0] if hasattr(module, 'get_jours_list') else 'Lundi')
+                heure_module = module.heure or tranches_horaires[0]
                 
-                # Si pas de jour spécifique, utiliser le premier jour des jours autorisés
-                if not jour_module:
-                    jours_autorises = module.get_jours_list()
-                    if jours_autorises:
-                        jour_module = jours_autorises[0]
-                        print(f"📝 Module {module.nom}: utilisation du premier jour autorisé: {jour_module}")
-                    else:
-                        print(f"⚠️ Module {module.nom} sans jour spécifique ni jours autorisés, ignoré")
-                        continue
-                
-                # Si pas d'heure spécifique, utiliser la première tranche
-                if not heure_module:
-                    heure_module = tranches_horaires[0]
-                    print(f"📝 Module {module.nom}: utilisation de l'heure par défaut: {heure_module}")
-                
-                print(f"👨‍🏫 Génération pour {module.nom} (Prof: {prof.nom}, Jour: {jour_module}, Heure: {heure_module})")
+                # Vérifier que le jour est valide
+                if jour_module not in ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']:
+                    jour_module = 'Lundi'
                 
                 cle = f"{jour_module}-{heure_module}"
+                salle_id = None
                 
-                # Utiliser la salle spécifique du module si elle existe (avec gestion d'erreur)
-                try:
-                    salle_module = getattr(module, 'salle', None)
-                    if salle_module and cle not in salle_occupe.get(cle, set()):
-                        salle_id = salle_module.id
-                        print(
-                            f"📝 Module {module.nom}: utilisation de la salle spécifique: {salle_module.nom}"
-                        )
-                    else:
-                        salle_id = None
-                        for salle in salles:
-                            if (
-                                salle.capacite >= classe.effectif
-                                and salle.id not in salle_occupe.get(cle, set())
-                            ):
-                                salle_id = salle.id
-                                break
-                except Exception:
-                    salle_id = None
+                # Essayer d'utiliser la salle préférée du module
+                salle_pref = getattr(module, 'salle', None)
+                if salle_pref and salle_pref.id not in salle_occupe.get(cle, set()):
+                    salle_id = salle_pref.id
+                else:
+                    # Chercher une salle disponible
                     for salle in salles:
-                        if (
-                            salle.capacite >= classe.effectif
-                            and salle.id not in salle_occupe.get(cle, set())
-                        ):
+                        if salle.capacite >= classe.effectif and salle.id not in salle_occupe.get(cle, set()):
                             salle_id = salle.id
                             break
+                
+                if salle_id and planifier(module, classe, jour_module, heure_module, salle_id):
+                    emplois_crees += 1
 
-                # Vérifier que la salle et le professeur sont disponibles
-                if salle_id is None:
-                    print(f"❌ Pas de salle disponible pour {module.nom} {cle}")
-                    continue
-
-                if salle_id in salle_occupe.get(cle, set()):
-                    print(f"❌ Salle déjà prise pour {cle} : {salle_id}")
-                    continue
-
-                prof_info = prof_occupe.get(cle, {}).get(prof.id)
-                if prof_info and not (
-                    prof_info['module'] == module.nom and prof_info['salle'] == salle_id
-                ):
-                    print(f"❌ Prof {prof.nom} occupé à {cle}")
-                    continue
-
-                salle_occupe.setdefault(cle, set()).add(salle_id)
-                prof_occupe.setdefault(cle, {})[prof.id] = {
-                    'module': module.nom,
-                    'salle': salle_id,
-                }
-
-                Emploi.objects.create(
-                    classe=classe,
-                    module=module,
-                    prof=prof,
-                    salle=Salle.objects.get(id=salle_id),
-                    jour=jour_module,
-                    heure=heure_module,
-                )
-                emplois_crees += 1
-
-                print(
-                    f"✅ Emploi créé: {jour_module} {heure_module} - {module.nom} - {prof.nom} - Salle: {Salle.objects.get(id=salle_id).nom}"
-                )
-
-        print(f"🎉 Génération terminée: {emplois_crees} emplois créés")
-
-        resultat = {"departements": []}
-        departements = (
-            Departement.objects.filter(id__in=departement_ids)
-            if departement_ids
-            else Departement.objects.all()
-        )
+        # Construction du JSON de résultat
+        result = {"departements": []}
         for dep in departements:
             classes_dep = Classe.objects.filter(filiere__departement=dep)
             classes_data = []
             for c in classes_dep:
                 emplois = Emploi.objects.filter(classe=c)
-                classes_data.append({"nom": c.nom, "emplois": build_emploi_data(emplois)})
+                classes_data.append({
+                    "id": c.id, 
+                    "nom": c.nom, 
+                    "emplois": build_emploi_data(emplois)
+                })
             if classes_data:
-                resultat["departements"].append({"nom": dep.nom, "classes": classes_data})
+                result["departements"].append({
+                    "id": dep.id, 
+                    "nom": dep.nom, 
+                    "classes": classes_data
+                })
 
-        return Response(resultat, status=200)
-        
+        print(f"🎉 Génération terminée: {emplois_crees} emplois créés")
+        return Response(result, status=200)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
+
+
+def emploi_par_classe_data(classe):
+    """Retourne la structure d'emploi pour une classe (utilisé pour le JSON global)"""
+    emplois = Emploi.objects.filter(classe=classe)
+
+    tranches_horaires = [
+        '07H30 - 10H00',
+        '10H15 - 12H45',
+        '13H00 - 15H30',
+        '15H45 - 18H15',
+    ]
+    jours_semaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+    data = {jour: {heure: '' for heure in tranches_horaires} for jour in jours_semaine}
+    for emploi in emplois:
+        module_nom = clean_text(emploi.module.nom)
+        salle_nom = clean_text(emploi.salle.nom)
+        prof_nom = clean_text(emploi.prof.nom)
+        libelle = f"{module_nom}\n{salle_nom}\n{prof_nom}"
+        if emploi.jour in data and emploi.heure in data[emploi.jour]:
+            data[emploi.jour][emploi.heure] = libelle
+    return data
 
 # ======== Route GET /emplois/classe/<id>/ ========
 @api_view(['GET'])
