@@ -3,6 +3,13 @@ from django.db import models
 # -------- FILIERE --------
 class Filiere(models.Model):
     nom = models.CharField(max_length=100)
+    departement = models.ForeignKey(
+        'Departement',
+        on_delete=models.CASCADE,
+        related_name='filieres',
+        null=True,
+        blank=True,
+    )
 
     def __str__(self):
         return self.nom

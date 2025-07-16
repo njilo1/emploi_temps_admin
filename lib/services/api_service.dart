@@ -149,6 +149,18 @@ class ApiService {
     throw Exception('❌ Failed to load emploi');
   }
 
+  static Future<Map<String, dynamic>> generateEmploisByDepartements(List<int> ids) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/emplois/generate/'),
+      headers: _headers,
+      body: jsonEncode({'departements': ids}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('❌ Failed to generate emplois');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   static Future<void> generateEmplois() async {
     final response = await http.post(Uri.parse('$baseUrl/emplois/generate/'));
     if (response.statusCode != 200) throw Exception('❌ Failed to generate emplois');

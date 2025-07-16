@@ -10,85 +10,108 @@ class EmploiGlobalPage extends StatefulWidget {
 }
 
 class _EmploiGlobalPageState extends State<EmploiGlobalPage> {
-  List<String> _filieres = [];
-  String? _filiere;
-  Map<String, Map<String, Map<String, String>>> _emploiParClasse = {};
+  List<dynamic> _departements = [];
+  final Set<int> _selection = {};
+  Map<String, dynamic>? _resultat;
 
   @override
   void initState() {
     super.initState();
-    _chargerFilieres();
+    _chargerDepartements();
   }
 
-  Future<void> _chargerFilieres() async {
-    final classes = await ApiService.fetchClasses();
-    final fil = classes.map((c) => c['filiere'] as String?).whereType<String>().toSet().toList();
-    setState(() {
-      _filieres = fil;
-      if (fil.isNotEmpty) _filiere = fil.first;
-    });
-    if (fil.isNotEmpty) {
-      _chargerEmplois();
-    }
+  Future<void> _chargerDepartements() async {
+    final deps = await ApiService.fetchDepartements();
+    setState(() => _departements = deps);
   }
 
-  Future<void> _chargerEmplois() async {
-    if (_filiere == null) return;
-    final classes = await ApiService.fetchClasses();
-    final filtered = classes.where((c) => c['filiere'] == _filiere).toList();
-    Map<String, Map<String, Map<String, String>>> data = {};
-    for (final c in filtered) {
-      final emplois = await ApiService.fetchEmploiParClasse(c['id'].toString());
-      data[c['nom']] = emplois;
+  Future<void> _generer() async {
+    if (_selection.isEmpty) return;
+    final data = await ApiService.generateEmploisByDepartements(_selection.toList());
+    if (mounted) {
+      setState(() => _resultat = data);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Génération terminée')));
     }
-    setState(() {
-      _emploiParClasse = data;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Emplois par Departement')),
+      appBar: AppBar(title: const Text('Emploi global')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            DropdownButton<String>(
-              value: _filiere,
-              items: _filieres
-                  .map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                  .toList(),
-              onChanged: (val) {
-                setState(() {
-                  _filiere = val;
-                });
-                _chargerEmplois();
-              },
-            ),
-            const SizedBox(height: 20),
             Expanded(
               child: ListView(
-                children: _emploiParClasse.entries.map((entry) {
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          EmploiTable(emploiData: entry.value),
-                        ],
-                      ),
-                    ),
+                children: _departements.map((d) {
+                  final id = d['id'] as int;
+                  return CheckboxListTile(
+                    title: Text(d['nom'] ?? ''),
+                    value: _selection.contains(id),
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selection.add(id);
+                        } else {
+                          _selection.remove(id);
+                        }
+                      });
+                    },
                   );
                 }).toList(),
               ),
             ),
+            ElevatedButton(
+              onPressed: _generer,
+              child: const Text('Générer automatiquement'),
+            ),
+            const SizedBox(height: 16),
+            if (_resultat != null) Expanded(child: _buildResultats()),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildResultats() {
+    final deps = _resultat!['departements'] as List<dynamic>;
+    if (deps.isEmpty) return const SizedBox.shrink();
+    return DefaultTabController(
+      length: deps.length,
+      child: Column(
+        children: [
+          TabBar(
+            isScrollable: true,
+            tabs: [for (final d in deps) Tab(text: d['nom'])],
+          ),
+          Expanded(
+            child: TabBarView(
+              children: deps.map((d) {
+                final classes = d['classes'] as List<dynamic>;
+                return ListView(
+                  children: classes.map((c) {
+                    final emploi = (c['emplois'] as Map).map((k, v) => MapEntry(k, Map<String, String>.from(v)));
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(c['nom'], style: const TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            EmploiTable(emploiData: Map<String, Map<String, String>>.from(emploi)),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
