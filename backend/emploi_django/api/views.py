@@ -31,8 +31,28 @@ def clean_text(text):
     result = text
     for old, new in replacements.items():
         result = result.replace(old, new)
-    
+
     return result
+
+
+def build_emploi_data(emplois):
+    """Retourne la structure d'emploi du temps pour une liste d'emplois."""
+    tranches_horaires = [
+        '07H30 - 10H00',
+        '10H15 - 12H45',
+        '13H00 - 15H30',
+        '15H45 - 18H15',
+    ]
+    jours_semaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+    data = {jour: {heure: '' for heure in tranches_horaires} for jour in jours_semaine}
+
+    for emploi in emplois:
+        libelle = f"{clean_text(emploi.module.nom)} – {clean_text(emploi.salle.nom)} – {clean_text(emploi.prof.nom)}"
+        if emploi.jour in data and emploi.heure in data[emploi.jour]:
+            data[emploi.jour][emploi.heure] = libelle
+
+    return data
 
 # ======== CRUD ViewSets ========
 class ClasseViewSet(viewsets.ModelViewSet):
@@ -66,8 +86,12 @@ class EmploiViewSet(viewsets.ModelViewSet):
 # ======== Route POST /emplois/generate/ ========
 @api_view(['POST'])
 def generer_emplois(request):
-    """Génère les emplois du temps pour plusieurs départements"""
-    import json
+    """Génération automatique des emplois du temps.
+    Si le corps de la requête contient un champ "departements" (liste d'IDs),
+    seules les classes rattachées à ces départements seront traitées.
+    Le résultat est retourné sous forme de JSON hiérarchique par département
+    puis par classe.
+    """
     try:
         from django.db import transaction
 
@@ -80,15 +104,20 @@ def generer_emplois(request):
 
         departement_ids = request.data.get('departements')
         if departement_ids is None:
-            # compatibilité ancienne version : tout générer
+            # Compatibilité ancienne version : tout générer
             departements = Departement.objects.all()
+            Emploi.objects.all().delete()
+            classes = Classe.objects.all()
+            print("📌 Génération pour toutes les classes")
         else:
             departements = Departement.objects.filter(id__in=departement_ids)
-
-        if hasattr(Filiere, 'departement'):
-            classes = Classe.objects.filter(filiere__departement__in=departements)
-        else:
-            classes = Classe.objects.all()
+            Emploi.objects.filter(
+                classe__filiere__departement_id__in=departement_ids
+            ).delete()
+            classes = Classe.objects.filter(
+                filiere__departement_id__in=departement_ids
+            )
+            print(f"📌 Génération demandée pour les départements {departement_ids}")
 
         salles = Salle.objects.filter(disponible=True)
 
@@ -97,14 +126,12 @@ def generer_emplois(request):
         if not salles.exists():
             return Response({"error": "Aucune salle disponible."}, status=400)
 
-        salle_occupe = {}
-        prof_occupe = {}
+        # Occupation des salles et profs par créneau "jour-heure"
+        salle_occupe = {}  # {cle: set(salle_id)}
+        prof_occupe = {}   # {cle: {prof_id: {'module': module.nom, 'salle': salle_id}}}
         emplois_crees = 0
 
         with transaction.atomic():
-            Emploi.objects.all().delete()
-            print("🗑️ Tous les emplois existants supprimés")
-
             # Détection des cours communs : même nom et même professeur
             modules = Module.objects.filter(classe__in=classes)
             common_keys = {}
@@ -135,51 +162,72 @@ def generer_emplois(request):
             # Planifier d'abord les cours communs
             for groupe in modules_communs:
                 ref = groupe[0]
-                jour = ref.jour or ref.get_jours_list()[0]
+                jour = ref.jour or (ref.get_jours_list()[0] if hasattr(ref, 'get_jours_list') else 'Lundi')
                 heure = ref.heure or tranches_horaires[0]
                 cle = f"{jour}-{heure}"
                 salle_id = None
+                
+                # Trouver une salle avec assez de place pour le plus grand groupe
+                max_effectif = max(mod.classe.effectif for mod in groupe)
                 for salle in salles:
-                    if salle.capacite >= max(mod.classe.effectif for mod in groupe) and salle_id is None:
-                        if salle.id not in salle_occupe.get(cle, set()):
-                            salle_id = salle.id
+                    if salle.capacite >= max_effectif and salle.id not in salle_occupe.get(cle, set()):
+                        salle_id = salle.id
+                        break
+                
                 if not salle_id:
+                    print(f"❌ Pas de salle assez grande pour le groupe {ref.nom}")
                     continue
+                    
                 for mod in groupe:
                     if planifier(mod, mod.classe, jour, heure, salle_id):
                         emplois_crees += 1
+                        print(f"✅ Cours commun créé: {mod.nom} - {mod.classe.nom}")
 
             # Puis les autres modules
             for module in modules_restants:
-                jour_module = module.jour or (module.get_jours_list()[0] if module.get_jours_list() else None)
+                classe = module.classe
+                jour_module = module.jour or (module.get_jours_list()[0] if hasattr(module, 'get_jours_list') else 'Lundi')
                 heure_module = module.heure or tranches_horaires[0]
-                if not jour_module:
-                    continue
-                salle_id = None
+                
+                # Vérifier que le jour est valide
+                if jour_module not in ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']:
+                    jour_module = 'Lundi'
+                
                 cle = f"{jour_module}-{heure_module}"
+                salle_id = None
+                
+                # Essayer d'utiliser la salle préférée du module
                 salle_pref = getattr(module, 'salle', None)
                 if salle_pref and salle_pref.id not in salle_occupe.get(cle, set()):
                     salle_id = salle_pref.id
                 else:
+                    # Chercher une salle disponible
                     for salle in salles:
-                        if salle.capacite >= module.classe.effectif and salle.id not in salle_occupe.get(cle, set()):
+                        if salle.capacite >= classe.effectif and salle.id not in salle_occupe.get(cle, set()):
                             salle_id = salle.id
                             break
-                if planifier(module, module.classe, jour_module, heure_module, salle_id):
+                
+                if salle_id and planifier(module, classe, jour_module, heure_module, salle_id):
                     emplois_crees += 1
 
         # Construction du JSON de résultat
         result = {"departements": []}
         for dep in departements:
-            if hasattr(Filiere, 'departement'):
-                classes_dep = Classe.objects.filter(filiere__departement=dep)
-            else:
-                classes_dep = classes
+            classes_dep = Classe.objects.filter(filiere__departement=dep)
             classes_data = []
             for c in classes_dep:
-                emplois = emploi_par_classe_data(c)
-                classes_data.append({"id": c.id, "nom": c.nom, "emplois": emplois})
-            result["departements"].append({"id": dep.id, "nom": dep.nom, "classes": classes_data})
+                emplois = Emploi.objects.filter(classe=c)
+                classes_data.append({
+                    "id": c.id, 
+                    "nom": c.nom, 
+                    "emplois": build_emploi_data(emplois)
+                })
+            if classes_data:
+                result["departements"].append({
+                    "id": dep.id, 
+                    "nom": dep.nom, 
+                    "classes": classes_data
+                })
 
         print(f"🎉 Génération terminée: {emplois_crees} emplois créés")
         return Response(result, status=200)

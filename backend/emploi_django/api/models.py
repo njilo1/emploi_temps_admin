@@ -3,6 +3,7 @@ from django.db import models
 # -------- FILIERE --------
 class Filiere(models.Model):
     nom = models.CharField(max_length=100)
+
     departement = models.ForeignKey(
         'Departement',
         on_delete=models.CASCADE,

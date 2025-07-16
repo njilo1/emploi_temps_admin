@@ -166,6 +166,21 @@ class ApiService {
     if (response.statusCode != 200) throw Exception('❌ Failed to generate emplois');
   }
 
+  static Future<Map<String, dynamic>> generateEmploisParDepartements(
+      List<int> departements) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/emplois/generate/'),
+      headers: _headers,
+      body: jsonEncode({'departements': departements}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('❌ Failed to generate emplois: ${response.body}');
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
   static Future<void> importEmplois(Map<String, dynamic> data) async {
     // Envoyer directement les données sans conversion d'IDs
     // L'API Django s'occupera de créer les éléments manquants
