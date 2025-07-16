@@ -40,22 +40,22 @@ class _EntityListPageState extends State<EntityListPage> {
     }
   }
 
-  Future<void> _deleteEntity(dynamic id) async {
+  Future<void> _deleteEntity(int id) async {
     try {
       await ApiService.deleteData('${widget.endpoint}$id/');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Élément supprimé')),
+          const SnackBar(content: Text('✅ Élément supprimé')),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text('❌ Erreur suppression : $e')),
         );
       }
     } finally {
-      await _loadData();
+      await _loadData(); // Recharge toujours la liste après suppression
     }
   }
 
@@ -66,49 +66,58 @@ class _EntityListPageState extends State<EntityListPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _items.isEmpty
-          ? const Center(child: Text('Aucun élément trouvé'))
-          : ListView.builder(
-        itemCount: _items.length,
-        itemBuilder: (context, index) {
-          final item = _items[index];
-          final title = widget.fieldsToShow
-              .map((field) => item[field]?.toString() ?? '')
-              .join(' - ');
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.inbox, size: 64, color: Theme.of(context).colorScheme.outline),
+                      const SizedBox(height: 12),
+                      const Text('Aucun élément trouvé'),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _items.length,
+                  itemBuilder: (context, index) {
+                    final item = _items[index];
+                    final title = widget.fieldsToShow
+                        .map((field) => item[field]?.toString() ?? '')
+                        .join(' - ');
 
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: ListTile(
-              title: Text(title),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () async {
-                  final confirm = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Confirmation'),
-                      content: const Text('Supprimer cet élément ?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          child: const Text('Annuler'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          child: const Text('Supprimer'),
-                        ),
-                      ],
-                    ),
-                  );
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: ListTile(
+                        title: Text(title),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text('Confirmer'),
+                                content: const Text('Supprimer cet élément ?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Annuler'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Supprimer'),
+                                  ),
+                                ],
+                              ),
+                            );
 
-                  if (confirm == true) {
-                    await _deleteEntity(item['id']);
-                  }
-                },
-              ),
-            ),
-          );
-        },
-      ),
+                            if (confirm == true) {
+                              await _deleteEntity(item['id']);
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
