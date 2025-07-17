@@ -67,6 +67,24 @@ class EmploiViewSet(viewsets.ModelViewSet):
 @api_view(['POST'])
 def generer_emplois(request):
     try:
+        # Vérifier si des départements sont spécifiés
+        departements_ids = request.data.get('departements', [])
+        
+        if departements_ids:
+            # Nouvelle logique pour génération par départements
+            return generer_emplois_par_departements(request, departements_ids)
+        else:
+            # Ancienne logique pour génération globale
+            return generer_emplois_globaux(request)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
+
+def generer_emplois_globaux(request):
+    """Génération globale (ancienne logique)"""
+    try:
         tranches_horaires = [
             '07H30 - 10H00',
             '10H15 - 12H45',
@@ -91,7 +109,7 @@ def generer_emplois(request):
         prof_occupe = {}
         emplois_crees = 0
 
-        print(f"📚 Génération pour {classes.count()} classes")
+        print(f"📚 Génération globale pour {classes.count()} classes")
         
         for classe in classes:
             print(f"🎓 Traitement de la classe: {classe.nom}")
@@ -187,11 +205,203 @@ def generer_emplois(request):
                 else:
                     print(f"⚠️ Créneau {jour_module} {heure_module} non disponible pour {module.nom}")
 
-        print(f"🎉 Génération terminée: {emplois_crees} emplois créés")
+        print(f"🎉 Génération globale terminée: {emplois_crees} emplois créés")
         return Response({
             "message": f"Emplois générés avec succès: {emplois_crees} emplois créés",
             "emplois_crees": emplois_crees
         }, status=200)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
+
+def generer_emplois_par_departements(request, departements_ids):
+    """Génération par départements sélectionnés avec gestion des conflits"""
+    from django.db import transaction
+    
+    try:
+        tranches_horaires = [
+            '07H30 - 10H00',
+            '10H15 - 12H45',
+            '13H00 - 15H30',
+            '15H45 - 18H15',
+        ]
+        jours_semaine = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+
+        print(f"🏢 Génération pour les départements: {departements_ids}")
+        
+        # Récupérer les départements
+        departements = Departement.objects.filter(id__in=departements_ids)
+        if not departements.exists():
+            return Response({"error": "Aucun département trouvé avec les IDs fournis."}, status=400)
+        
+        # Récupérer toutes les classes des départements sélectionnés
+        departements_ids = [d.id for d in departements]
+        classes = Classe.objects.filter(filiere__departement_id__in=departements_ids)
+        if not classes.exists():
+            return Response({"error": "Aucune classe trouvée dans les départements sélectionnés."}, status=400)
+        
+        # Récupérer toutes les salles disponibles
+        salles = Salle.objects.filter(disponible=True)
+        if not salles.exists():
+            return Response({"error": "Aucune salle disponible trouvée."}, status=400)
+
+        # Vider tous les emplois existants
+        Emploi.objects.all().delete()
+        print("🗑️ Tous les emplois existants supprimés")
+
+        # Dictionnaires pour gérer les conflits
+        salles_occupees = {}  # {jour: {heure: salle_id}}
+        profs_occupees = {}   # {jour: {heure: prof_id}}
+        emplois_crees = 0
+        resultat = {"departements": []}
+
+        with transaction.atomic():
+            for departement in departements:
+                print(f"🏢 Traitement du département: {departement.nom}")
+                departement_data = {
+                    "nom": departement.nom,
+                    "classes": []
+                }
+                
+                # Récupérer les classes de ce département
+                classes_departement = classes.filter(filiere__departement_id=departement.id)
+                
+                for classe in classes_departement:
+                    print(f"🎓 Traitement de la classe: {classe.nom}")
+                    classe_data = {
+                        "nom": classe.nom,
+                        "emplois": {}
+                    }
+                    
+                    # Initialiser la structure des emplois pour cette classe
+                    for jour in jours_semaine:
+                        classe_data["emplois"][jour] = {}
+                        for heure in tranches_horaires:
+                            classe_data["emplois"][jour][heure] = ""
+                    
+                    # Récupérer les modules de cette classe
+                    modules_classe = Module.objects.filter(classe=classe)
+                    
+                    if not modules_classe.exists():
+                        print(f"⚠️ Aucun module trouvé pour la classe {classe.nom}")
+                        departement_data["classes"].append(classe_data)
+                        continue
+                    
+                    print(f"📖 Modules pour {classe.nom}: {[m.nom for m in modules_classe]}")
+
+                    for module in modules_classe:
+                        prof = getattr(module, 'prof', None)
+                        
+                        if not prof:
+                            print(f"⚠️ Module {module.nom} sans professeur, ignoré")
+                            continue
+
+                        # Récupérer le jour et l'heure spécifiques du module
+                        try:
+                            jour_module = getattr(module, 'jour', None)
+                            heure_module = getattr(module, 'heure', None)
+                        except:
+                            jour_module = None
+                            heure_module = None
+                        
+                        # Si pas de jour spécifique, utiliser le premier jour des jours autorisés
+                        if not jour_module:
+                            jours_autorises = module.get_jours_list()
+                            if jours_autorises:
+                                jour_module = jours_autorises[0]
+                                print(f"📝 Module {module.nom}: utilisation du premier jour autorisé: {jour_module}")
+                            else:
+                                print(f"⚠️ Module {module.nom} sans jour spécifique ni jours autorisés, ignoré")
+                                continue
+                        
+                        # Si pas d'heure spécifique, utiliser la première tranche
+                        if not heure_module:
+                            heure_module = tranches_horaires[0]
+                            print(f"📝 Module {module.nom}: utilisation de l'heure par défaut: {heure_module}")
+                        
+                        print(f"👨‍🏫 Génération pour {module.nom} (Prof: {prof.nom}, Jour: {jour_module}, Heure: {heure_module})")
+                        
+                        # Vérifier les conflits de salle et professeur
+                        salle_disponible = None
+                        
+                        # Utiliser la salle spécifique du module si elle existe
+                        try:
+                            salle_module = getattr(module, 'salle', None)
+                            if salle_module:
+                                # Vérifier si cette salle est disponible
+                                if (salle_module.disponible and 
+                                    salle_module.capacite >= classe.effectif and
+                                    (jour_module not in salles_occupees.get(salle_module.id, {}) or
+                                     heure_module not in salles_occupees.get(salle_module.id, {}).get(jour_module, {}))):
+                                    salle_disponible = salle_module
+                                    print(f"📝 Module {module.nom}: utilisation de la salle spécifique: {salle_module.nom}")
+                        except:
+                            pass
+                        
+                        # Si pas de salle spécifique ou salle non disponible, chercher une salle libre
+                        if not salle_disponible:
+                            for salle in salles:
+                                if (salle.capacite >= classe.effectif and
+                                    (jour_module not in salles_occupees.get(salle.id, {}) or
+                                     heure_module not in salles_occupees.get(salle.id, {}).get(jour_module, {}))):
+                                    salle_disponible = salle
+                                    print(f"📝 Module {module.nom}: salle assignée: {salle.nom}")
+                                    break
+                        
+                        # Vérifier que le professeur n'est pas occupé
+                        prof_occupe = False
+                        if (jour_module in profs_occupees.get(prof.id, {}) and
+                            heure_module in profs_occupees.get(prof.id, {}).get(jour_module, {})):
+                            prof_occupe = True
+                            print(f"⚠️ Conflit professeur: {prof.nom} déjà occupé le {jour_module} à {heure_module}")
+                        
+                        # Créer l'emploi si tout est disponible
+                        if salle_disponible and not prof_occupe:
+                            # Marquer la salle comme occupée
+                            if salle_disponible.id not in salles_occupees:
+                                salles_occupees[salle_disponible.id] = {}
+                            if jour_module not in salles_occupees[salle_disponible.id]:
+                                salles_occupees[salle_disponible.id][jour_module] = {}
+                            salles_occupees[salle_disponible.id][jour_module][heure_module] = True
+                            
+                            # Marquer le professeur comme occupé
+                            if prof.id not in profs_occupees:
+                                profs_occupees[prof.id] = {}
+                            if jour_module not in profs_occupees[prof.id]:
+                                profs_occupees[prof.id][jour_module] = {}
+                            profs_occupees[prof.id][jour_module][heure_module] = True
+
+                            # Créer l'emploi
+                            Emploi.objects.create(
+                                classe=classe,
+                                module=module,
+                                prof=prof,
+                                salle=salle_disponible,
+                                jour=jour_module,
+                                heure=heure_module
+                            )
+                            emplois_crees += 1
+                            
+                            # Ajouter à la structure de résultat
+                            module_nom = clean_text(module.nom)
+                            salle_nom = clean_text(salle_disponible.nom)
+                            prof_nom = clean_text(prof.nom)
+                            libelle = f"{module_nom}\n{salle_nom}\n{prof_nom}"
+                            
+                            classe_data["emplois"][jour_module][heure_module] = libelle
+                            
+                            print(f"✅ Emploi créé: {jour_module} {heure_module} - {module.nom} - {prof.nom} - Salle: {salle_disponible.nom}")
+                        else:
+                            print(f"⚠️ Créneau {jour_module} {heure_module} non disponible pour {module.nom} (salle ou prof occupé)")
+                    
+                    departement_data["classes"].append(classe_data)
+                
+                resultat["departements"].append(departement_data)
+
+        print(f"🎉 Génération par départements terminée: {emplois_crees} emplois créés")
+        return Response(resultat, status=200)
         
     except Exception as e:
         import traceback

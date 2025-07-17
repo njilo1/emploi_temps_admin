@@ -30,60 +30,66 @@ class EmploiTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Définir une largeur fixe pour chaque colonne (augmentée pour meilleure lisibilité)
-    const double columnWidth = 180.0;
-    const double hourColumnWidth = 100.0;
+    // Définir une largeur fixe pour chaque colonne (augmentée pour éviter les coupures)
+    const double columnWidth = 190.0;
+    const double hourColumnWidth = 110.0;
     
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         columnSpacing: 0,
-        dataRowMinHeight: 90, // Augmenté de 60 à 90
-        dataRowMaxHeight: 90, // Augmenté de 60 à 90
+        dataRowMinHeight: 100, // Augmenté pour plus d'espace
+        dataRowMaxHeight: 100, // Augmenté pour plus d'espace
         border: TableBorder(
-          horizontalInside: BorderSide(color: Colors.grey.shade300, width: 1),
-          verticalInside: BorderSide(color: Colors.grey.shade300, width: 1),
-          top: BorderSide(color: Colors.grey.shade400, width: 1),
-          bottom: BorderSide(color: Colors.grey.shade400, width: 1),
-          left: BorderSide(color: Colors.grey.shade400, width: 1),
-          right: BorderSide(color: Colors.grey.shade400, width: 1),
+          horizontalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+          verticalInside: BorderSide(color: Colors.grey.shade200, width: 1),
+          top: BorderSide(color: Colors.grey.shade300, width: 2),
+          bottom: BorderSide(color: Colors.grey.shade300, width: 2),
+          left: BorderSide(color: Colors.grey.shade300, width: 2),
+          right: BorderSide(color: Colors.grey.shade300, width: 2),
         ),
         columns: [
           DataColumn(
             label: Container(
               width: hourColumnWidth,
-              height: 50, // Augmenté de 40 à 50
+              height: 60, // Augmenté pour plus d'espace
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.teal.shade50,
+                color: Colors.blue.shade100, // Uniformisé avec les autres colonnes
                 border: Border(
-                  right: BorderSide(color: Colors.teal.shade200, width: 1),
-                ),
-              ),
-              child: const Text(
-                'Heure',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal), // Augmenté de 11 à 13
-              ),
-            ),
-          ),
-          ...jours.map((jour) => DataColumn(
-            label: Container(
-              width: columnWidth,
-              height: 50, // Augmenté de 40 à 50
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                border: Border(
-                  right: BorderSide(color: Colors.grey.shade300, width: 1),
+                  right: BorderSide(color: Colors.teal.shade300, width: 2),
                 ),
               ),
               child: Text(
-                jour,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade800), // Augmenté de 11 à 13
-                textAlign: TextAlign.center,
+                'Heure',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue.shade800),
               ),
             ),
-          )),
+          ),
+          ...jours.asMap().entries.map((entry) {
+            final index = entry.key;
+            final jour = entry.value;
+            final isLast = index == jours.length - 1;
+            
+            return DataColumn(
+              label: Container(
+                width: columnWidth,
+                height: 60, // Augmenté pour plus d'espace
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade100,
+                  border: Border(
+                    right: isLast ? BorderSide.none : BorderSide(color: Colors.blue.shade200, width: 1),
+                  ),
+                ),
+                child: Text(
+                  jour,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue.shade800),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }).toList(),
         ],
         rows: heures.map((heure) {
           final isPause = heure.contains('Pause') || heure.contains('pause');
@@ -92,38 +98,42 @@ class EmploiTable extends StatelessWidget {
               DataCell(
                 Container(
                   width: hourColumnWidth,
-                  height: 90, // Augmenté de 60 à 90
+                  height: 100, // Augmenté pour plus d'espace
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: Colors.blue.shade100, // Uniformisé avec les autres colonnes
                     border: Border(
-                      right: BorderSide(color: Colors.teal.shade200, width: 1),
+                      right: BorderSide(color: Colors.teal.shade300, width: 2),
                     ),
                   ),
                   child: Text(
                     isPause ? 'Pause' : heure,
                     style: TextStyle(
-                      fontSize: 11, // Augmenté de 9 à 11
-                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                       fontStyle: isPause ? FontStyle.italic : FontStyle.normal,
-                      color: isPause ? Colors.grey[600] : Colors.teal.shade700,
+                      color: isPause ? Colors.grey[600] : Colors.blue[900],
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ),
-              ...jours.map((jour) {
+              ...jours.asMap().entries.map((entry) {
+                final index = entry.key;
+                final jour = entry.value;
+                final isLast = index == jours.length - 1;
                 final contenu = emploiData[jour]?[heure] ?? '';
+                
                 return DataCell(
                   Container(
                     width: columnWidth,
-                    height: 90, // Augmenté de 60 à 90
-                    padding: const EdgeInsets.all(6), // Augmenté de 3 à 6
+                    height: 100, // Augmenté pour plus d'espace
+                    padding: const EdgeInsets.all(10), // Augmenté pour plus d'espace
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: contenu.isNotEmpty ? Colors.white : Colors.grey.shade50,
+                      color: contenu.isNotEmpty ? Colors.blue.shade50 : Colors.grey.shade50, // Uniformisé
                       border: Border(
-                        right: BorderSide(color: Colors.grey.shade300, width: 1),
+                        right: isLast ? BorderSide.none : BorderSide(color: Colors.grey.shade200, width: 1),
                       ),
                     ),
                     child: contenu.isNotEmpty
