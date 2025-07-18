@@ -16,13 +16,13 @@ class MyApp extends StatelessWidget {
       title: 'Gestion Emplois du Temps',
       theme: ThemeData(
         primarySwatch: Colors.teal,
-        // Amélioration de l'interface pour le desktop
-        cardTheme: CardThemeData(
-          elevation: PlatformUtils.isDesktop ? 8 : 4,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+        // // Amélioration de l'interface pour le desktop
+        // cardTheme: CardThemeData(
+        //   elevation: PlatformUtils.isDesktop ? 8 : 4,
+        //   shape: const RoundedRectangleBorder(
+        //     borderRadius: BorderRadius.circular(12),
+        //   ),
+        // ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             padding: PlatformUtils.isDesktop 
